@@ -11,12 +11,14 @@ import pp_ga
 
 def main():
     net = create_net()
+
     # Degrees of freedom for optimization
     # TODO: how to make easy? (if index == xxx: use all indexes)
     variables = (('gen', 'p_mw', 0), ('gen', 'p_mw', 1),
                  ('gen', 'q_mvar', 0), ('gen', 'q_mvar', 1))
-    ga = pp_ga.GeneticAlgorithm(pop_size=10, n_iter=10, net=net,
-                                obj_fct=obj_fct)
+
+    ga = pp_ga.GeneticAlgorithm(pop_size=10, variables=variables,
+                                net=net, obj_fct=obj_fct)
 
     ga.run()
 
