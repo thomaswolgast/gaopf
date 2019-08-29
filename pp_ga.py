@@ -11,13 +11,14 @@ TODO!
 import random
 
 import numpy as np
-
 import pandapower as pp
 
+import genetic_operators
 
-class GeneticAlgorithm:
+
+class GeneticAlgorithm(genetic_operators.Mixin):
     def __init__(self, pop_size: int, variables: tuple, net: object,
-                 obj_fct='obj_P_loss'):
+                 obj_fct='obj_p_loss', penalty_fct='voltage_band'):
         # Number of individuums (possible solutions)
         self.pop_size = pop_size
 
@@ -26,14 +27,27 @@ class GeneticAlgorithm:
         # Pandapower network which state shall be optimized
         self.net = net
 
-        # Choose fitness/objective function (attention: all objective
+        # Choose objective function (attention: all objective
         # function must be written as minimization)
         if isinstance(obj_fct, str):
             # Select from pre-defined fitness functions (e.g. reduce loss)
-            self.fit_fct = self.__dict__[obj_fct]
+            import obj_functs
+            # TODO: Nicer way to do this?
+            self.obj_fct = obj_functs.__dict__[obj_fct]
         else:
             # Self-made fitness function (objective function)
-            self.fit_fct = obj_fct
+            self.obj_fct = obj_fct
+
+        # Choose penalty function to punish constraint violations (gets
+        # added to the fitness)
+        if isinstance(obj_fct, str):
+            # Select from pre-defined penalty functions (e.g. voltage only)
+            import penalty_fcts
+            # TODO: Nicer way to do this?
+            self.penalty_fct = penalty_fcts.__dict__[obj_fct]
+        else:
+            # Self-made fitness function (objective function)
+            self.penalty_fct = penalty_fct
 
         # Choose selection method
         self.selection = self.tournament
@@ -46,11 +60,13 @@ class GeneticAlgorithm:
 
         self.init_pop()
 
-        # self.iter = 0
-        # while True:
-        #     self.fit_fct()
-        #     if self.termination() is True:
-        #         break
+        self.iter = 0
+        while True:
+            print(f'Step {self.iter}')
+            self.fit_fct()
+            print(self.best_ind.fitness)
+            if self.termination() is True:
+                break
         #     self.selection()
         #     self.crossover()
         #     self.mutation()
@@ -59,70 +75,84 @@ class GeneticAlgorithm:
 
     def init_pop(self):
         """ Random initilization of the population. """
-        self.pop = [self.random_ind() for _ in range(self.pop_size)]
+        self.pop = [Individuum(self.vars, self.net)
+                    for _ in range(self.pop_size)]
 
-    def random_ind(self):
-        """ Initialize random individuum in the given search space. """
-        ind = []
-        for unit_type, actuator, idx in self.vars:
-            if actuator == 'p_mw' or actuator == 'q_mvar':
-                var = LmtNumber(
-                    nmbr_type='float',
-                    min_boundary=self.net[unit_type][f'min_{actuator}'][idx],
-                    max_boundary=self.net[unit_type][f'max_{actuator}'][idx])
-            elif actuator == 'tap_pos':
-                var = LmtNumber(
-                    nmbr_type='int',
-                    min_boundary=self.net[unit_type]['tap_min'][idx],
-                    max_boundary=self.net[unit_type]['tap_max'][idx])
+    def fit_fct(self):
+        """ Calculate fitness for each individuum, including penalties for
+        constraint violations. """
+        for ind in self.pop:
+            # TODO: update net with data
+            net = self.update_net(self.net, ind)
+            ind.fitness = self.obj_fct(net=net) + self.penalty_fct(net=net)
 
-            ind.append(var)
-
-        return ind
+        self.best_ind = min(self.pop, key=lambda ind: ind.fitness)
 
     def term_iter_max(self):
         return bool(self.iter >= self.iter_max)
 
-    def obj_P_loss(self):
-        """ Objective function: minimize total active power losses in whole
-        network. """
-        for ind in self.pop:
-            self.update_net(self.net, ind)
-            pp.runpp(self.net)
+    def update_net(self, net, ind):
+        """ Update a given pandapower network to the state of a single
+        individuum and perform power flow calculation. """
+        for (unit_type, actuator, idx), nmbr in zip(self.vars, ind):
+            print(unit_type, actuator, idx, nmbr.value, nmbr)
+            net[unit_type][actuator][idx] = nmbr.value
 
-            # TODO: any easier way than summing up?
-            losses = 0
-            losses += sum(self.net)
+        try:
+            pp.runpp(net)
+        except:
+            pass
+            # TODO: How to punish failure here -> worst fitness!
 
-            ind.fitness = losses
+        return net
 
-    def tournament(self, group_size: int=4):
-        """ Divive population in groups of size n and select the best
-        individuum of each group. """
 
-        self.parents = []
-        for idx in range(0, self.pop_size, group_size):
-            self.parents
+class Individuum:
+    def __init__(self, vars_in: tuple, net: object):
+        self.random_init(vars_in, net)
+
+        self.fitness = None
+        # Did this individuum lead to failed power flow calculation?
+        self.failure = None
+        # All constraints satisfied?
+        self.constraints = None
+
+    def random_init(self, vars_in, net):
+        self.vars = []
+        for unit_type, actuator, idx in vars_in:
+            if actuator == 'p_mw' or actuator == 'q_mvar':
+                var = LmtNumber(
+                    nmbr_type='float',
+                    min_boundary=net[unit_type][f'min_{actuator}'][idx],
+                    max_boundary=net[unit_type][f'max_{actuator}'][idx])
+            elif actuator == 'tap_pos':
+                var = LmtNumber(
+                    nmbr_type='int',
+                    min_boundary=net[unit_type]['tap_min'][idx],
+                    max_boundary=net[unit_type]['tap_max'][idx])
+
+            self.vars.append(var)
 
 
 class LmtNumber:
     """ A number that is restricted to a given range of values. """
     def __init__(self, nmbr_type: str, min_boundary, max_boundary,
                  set_value=None):
-
-
         assert nmbr_type in ('float', 'int')
         self.type = nmbr_type
 
         assert max_boundary > min_boundary
         self.min_boundary = min_boundary
-        self.max_boundary = min_boundary
+        self.max_boundary = max_boundary
         self.range = self.max_boundary - self.min_boundary
 
         if set_value is not None:
             self.value = set_value
         else:
             self.value = self.random_init()
+
+    def __repr__(self):
+        return str(self.value)
 
     @property
     def value(self):
@@ -131,14 +161,12 @@ class LmtNumber:
     @value.setter
     def value(self, set_value):
         """ Make sure 'value' stays always within boundaries. """
-        print(set_value, self.max_boundary, self.min_boundary)
         self._value = max(
             min(self.max_boundary, set_value), self.min_boundary)
 
     def random_init(self):
         """ Init value with a random number between the boundaries """
         if self.type == 'float':
-            self.value = random.random() * self.range + self.min_boundary
+            return random.random() * self.range + self.min_boundary
         elif self.type == 'int':
-            self.value = random.randint(self.min_boundary,
-                                        self.max_boundary)
+            return random.randint(self.min_boundary, self.max_boundary)
