@@ -17,11 +17,18 @@ def main():
     variables = (('gen', 'p_mw', 0), ('gen', 'p_mw', 1))
                  # ('gen', 'q_mvar', 0), ('gen', 'q_mvar', 1))
 
-    ga = pp_ga.GeneticAlgorithm(pop_size=10, variables=variables,
+    ga = pp_ga.GeneticAlgorithm(pop_size=400, variables=variables,
                                 net=net, obj_fct=obj_fct,
                                 penalty_fct='loading_only')
 
-    ga.run(iter_max=5)
+    ga.run(iter_max=4)
+
+    net = create_net()
+    costeg = pp.create_poly_cost(net, 0, 'ext_grid', cp1_eur_per_mw=10)
+    costgen1 = pp.create_poly_cost(net, 0, 'gen', cp1_eur_per_mw=10)
+    costgen2 = pp.create_poly_cost(net, 1, 'gen', cp1_eur_per_mw=10)
+    pp.runopp(net)
+    print(net.res_cost)
 
 
 def obj_fct(net):
