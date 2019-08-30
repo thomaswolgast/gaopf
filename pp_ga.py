@@ -17,12 +17,12 @@ from util import Individuum
 
 class GeneticAlgorithm(genetic_operators.Mixin):
     def __init__(self, pop_size: int, variables: tuple, net: object,
+                 mutation_rate: float,
                  obj_fct='obj_p_loss', penalty_fct='voltage_band',
                  selection='tournament'):
-        # Number of individuums (possible solutions)
         self.pop_size = pop_size
-
         self.vars = variables
+        self.mutation_rate = mutation_rate
 
         # Pandapower network which state shall be optimized
         self.net = net
@@ -71,11 +71,16 @@ class GeneticAlgorithm(genetic_operators.Mixin):
                 break
             self.selection()
             self.recombination('single_point')
-        #     self.mutation()
+            self.mutation(self.mutation_rate)
 
             self.iter += 1
 
+        self.opt_net = self.update_net(self.net, self.best_ind)
+
         print(self.best_ind.fitness)
+        print(self.best_ind)
+        print(self.opt_net.res_bus)
+
         plt.plot(self.best_fit_course)
         plt.plot(self.avrg_fit_course)
         plt.show()
@@ -97,6 +102,7 @@ class GeneticAlgorithm(genetic_operators.Mixin):
             ind.valid = valid
 
         self.best_ind = min(self.pop, key=lambda ind: ind.fitness)
+        # TODO: only accept best individuum if valid=True (constraints!)
         self.best_fit_course.append(self.best_ind.fitness)
         average_fitness = sum(
             [ind.fitness for ind in self.pop])/len(self.pop)

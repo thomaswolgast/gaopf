@@ -7,6 +7,7 @@ A collection of various fitness functions for the pandapower ga-OPF
 
 def min_p_loss(net):
     """ Minimize active power losses for a given network. """
+    # TODO!
     gen = 0
     load = 0
     gen += sum(net.gen.p_mw)

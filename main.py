@@ -8,6 +8,14 @@ import pandapower as pp
 
 import pp_ga
 
+"""
+TODO:
+- Größeres Netz erstellen und testen!
+- Zwei arrays für int und float, um die operatoren für beides zu optimieren
+und zu differenzieren?
+- Zeitmessung integrieren, um Verbesserungspotenzial zu finden
+"""
+
 
 def main():
     net = create_net()
@@ -17,11 +25,12 @@ def main():
     variables = (('gen', 'p_mw', 0), ('gen', 'p_mw', 1))
                  # ('gen', 'q_mvar', 0), ('gen', 'q_mvar', 1))
 
-    ga = pp_ga.GeneticAlgorithm(pop_size=400, variables=variables,
-                                net=net, obj_fct=obj_fct,
-                                penalty_fct='loading_only')
+    ga = pp_ga.GeneticAlgorithm(pop_size=50, variables=variables,
+                                net=net, mutation_rate=0.001,
+                                obj_fct=obj_fct,
+                                penalty_fct='all_constraints')
 
-    ga.run(iter_max=4)
+    ga.run(iter_max=5)
 
     net = create_net()
     costeg = pp.create_poly_cost(net, 0, 'ext_grid', cp1_eur_per_mw=10)
