@@ -19,7 +19,7 @@ def main():
 
     ga = pp_ga.GeneticAlgorithm(pop_size=10, variables=variables,
                                 net=net, obj_fct=obj_fct,
-                                penalty_fct=penalty_fct)
+                                penalty_fct='loading_only')
 
     ga.run(iter_max=5)
 
@@ -34,11 +34,6 @@ def obj_fct(net):
     costs += sum(net.res_gen['p_mw']) * 10
 
     return costs
-
-
-def penalty_fct(net):
-    penalty = 0
-    return penalty
 
 
 def create_net():
