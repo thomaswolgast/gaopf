@@ -31,10 +31,11 @@ def scenario1():
     """ Test OPF compared to pandapower OPF-tutorial. """
     variables = (('gen', 'p_mw', 0), ('gen', 'p_mw', 1))
     net = create_net1()
+
     ga = pp_ga.GeneticAlgorithm(pop_size=50, variables=variables,
                                 net=net, mutation_rate=0.001,
                                 obj_fct=obj_fct1,
-                                penalty_fct='all_constraints')
+                                penalty_fct='all')
     ga.run(iter_max=30)
 
     # Compare with pp-OPF
@@ -66,7 +67,7 @@ def scenario2():
     ga = pp_ga.GeneticAlgorithm(pop_size=300, variables=variables,
                                 net=net, mutation_rate=0.001,
                                 obj_fct='min_p_loss',
-                                penalty_fct='all_constraints')
+                                penalty_fct='all')
 
     net_opt = ga.run(iter_max=25)
 

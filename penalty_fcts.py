@@ -5,12 +5,20 @@ A collection of penalty functions to punish selected constraint violations.
 """
 
 
-def given_constraints(net, constraints: tuple):
+def given_constraints(net, constraints):
     """ Punish a set of constraints. Possible are: voltage band violation 
     (String: 'voltage_band'), max line loading ('line_load'), max trafo 
     loading ('trafo_load' and/or 'trafo3w_load'). """
+    # TODO: Add option to make penelty adjustable! -> ((constraint1, penalty1) ...) ?
 
     penalty = 0
+    if isinstance(constraints, str):
+        if constraints == 'none':
+            return 0, True
+        elif constraints == 'all':
+            constraints = ('voltage_band', 'line_load', 
+                           'trafo_load', 'trafo3w_load')
+    
     for constraint in constraints:
         penalty += eval(constraint)(net)
 
