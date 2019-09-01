@@ -5,6 +5,24 @@ A collection of penalty functions to punish selected constraint violations.
 """
 
 
+def given_constraints(net, constraints: tuple):
+    """ Punish a set of constraints. Possible are: voltage band violation 
+    (String: 'voltage_band'), max line loading ('line_load'), max trafo 
+    loading ('trafo_load' and/or 'trafo3w_load'). """
+
+    penalty = 0
+    for constraint in constraints:
+        penalty += eval(constraint)(net)
+
+    # Define under which circumstances a solution is seen as valid
+    if penalty > 0:
+        valid = False
+    else:
+        valid = True
+
+    return penalty, valid
+
+"""
 def all_constraints(net):
     """ Punish the following constraints: voltage band violation, line load
     violation, trafo load violation, three winding trafo violation. The
@@ -38,14 +56,15 @@ def loading_only(net):
         valid = True
 
     return penalty, valid
-
+"""
 
 def voltage_band(net):
     """ Punish voltage violations with 1 Meuro per 1pu violation.
     See https://pandapower.readthedocs.io/en/v2.1.0/opf/formulation.html for
     default voltage band values. """
+    # TODO: divide upper and lower boundary into two functions?
 
-    # TODO: Make costs adjustable
+    # TODO: Make costs adjustable!
     costs = 1000000
 
     penalty = 0
