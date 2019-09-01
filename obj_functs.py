@@ -14,3 +14,8 @@ def min_p_loss(net):
     p_loss = gen - load
 
     return p_loss
+
+def max_p_feedin(net):
+       """ Maximize active power feed-in of all generators. Negative sign 
+       necessary, because all objective functions must be min problems. """
+       return -(sum(net.res_sgen.p_mw) + sum(net.res_gen.p_mw))
