@@ -78,12 +78,15 @@ class GeneticAlgorithm(genetic_operators.Mixin):
         self.opt_net = self.update_net(self.net, self.best_ind)
 
         print(self.best_ind.fitness)
-        print(self.best_ind)
+        print(self.opt_net.sgen)
         print(self.opt_net.res_bus)
 
-        plt.plot(self.best_fit_course)
-        plt.plot(self.avrg_fit_course)
-        plt.show()
+        # Plot results
+        # plt.plot(self.best_fit_course)
+        # # plt.plot(self.avrg_fit_course)
+        # plt.show()
+
+        return self.opt_net
 
     def init_pop(self):
         """ Random initilization of the population. """
@@ -99,6 +102,7 @@ class GeneticAlgorithm(genetic_operators.Mixin):
 
             # Assign fitness value to each individuum
             ind.fitness = self.obj_fct(net=net) + penalty
+            ind.penalty = penalty
             ind.valid = valid
 
         self.best_ind = min(self.pop, key=lambda ind: ind.fitness)

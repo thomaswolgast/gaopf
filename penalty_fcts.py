@@ -51,15 +51,18 @@ def voltage_band(net):
     penalty = 0
     for idx in net.bus.index:
         try:
-            u_max = net.bus.max_vm_pu
+            u_max = net.bus.max_vm_pu[idx]
         except AttributeError:
             # Set u_max to default value
             u_max = 1.1
+            print(f'Set v_max to default ({u_max}) for bus {idx}')
+
         try:
-            u_min = net.bus.max_vm_pu
+            u_min = net.bus.min_vm_pu[idx]
         except AttributeError:
             # Set u_min to default value
             u_min = 0.9
+            print(f'Set v_min to default ({u_min}) for bus {idx}')
 
         if net.res_bus.vm_pu[idx] > u_max:
             penalty += (net.res_bus.vm_pu[idx] - u_max) * costs
@@ -71,7 +74,6 @@ def voltage_band(net):
 
 def line_load(net):
     """ Punish line load violation with 10 keuro per 1% violation. """
-
     return loading(net, costs=10000, unit_type='line')
 
 

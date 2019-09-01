@@ -4,7 +4,10 @@ Test the genetic algorithm for pandapower
 
 """
 
+import numpy as np
+import pandas as pd
 import pandapower as pp
+import pandapower.networks as pn
 
 import pp_ga
 
@@ -14,25 +17,28 @@ TODO:
 - Zwei arrays für int und float, um die operatoren für beides zu optimieren
 und zu differenzieren?
 - Zeitmessung integrieren, um Verbesserungspotenzial zu finden
+- Unterschiede zu pandapower-OPF herausarbeiten -> weiterentwickeln sinnvoll?
 """
 
 
 def main():
-    net = create_net()
+    net = scenario2()
+    net_ref = scenario2ref()
+    return net, net_ref
 
-    # Degrees of freedom for optimization
-    # TODO: how to make easy? (if index == xxx: use all indexes)
+
+def scenario1():
+    """ Test OPF compared to pandapower OPF-tutorial. """
     variables = (('gen', 'p_mw', 0), ('gen', 'p_mw', 1))
-                 # ('gen', 'q_mvar', 0), ('gen', 'q_mvar', 1))
-
+    net = create_net1()
     ga = pp_ga.GeneticAlgorithm(pop_size=50, variables=variables,
                                 net=net, mutation_rate=0.001,
-                                obj_fct=obj_fct,
+                                obj_fct=obj_fct1,
                                 penalty_fct='all_constraints')
+    ga.run(iter_max=30)
 
-    ga.run(iter_max=5)
-
-    net = create_net()
+    # Compare with pp-OPF
+    net = create_net1()
     costeg = pp.create_poly_cost(net, 0, 'ext_grid', cp1_eur_per_mw=10)
     costgen1 = pp.create_poly_cost(net, 0, 'gen', cp1_eur_per_mw=10)
     costgen2 = pp.create_poly_cost(net, 1, 'gen', cp1_eur_per_mw=10)
@@ -40,7 +46,49 @@ def main():
     print(net.res_cost)
 
 
-def obj_fct(net):
+def scenario2():
+    """ Test OPF with larger network (cigre mv with pv and wind). """
+    net = create_net2()
+
+    # Degrees of freedom for optimization
+    # TODO: how to make easy? (if index == xxx: use all indexes)
+    variables = (('sgen', 'q_mvar', 0),
+                 ('sgen', 'q_mvar', 1),
+                 ('sgen', 'q_mvar', 2),
+                 ('sgen', 'q_mvar', 3),
+                 ('sgen', 'q_mvar', 4),
+                 ('sgen', 'q_mvar', 5),
+                 ('sgen', 'q_mvar', 6),
+                 ('sgen', 'q_mvar', 7),
+                 ('sgen', 'q_mvar', 8),)
+    # For trafo: ('trafo, 'tap_pos', 0)
+
+    ga = pp_ga.GeneticAlgorithm(pop_size=300, variables=variables,
+                                net=net, mutation_rate=0.001,
+                                obj_fct='min_p_loss',
+                                penalty_fct='all_constraints')
+
+    net_opt = ga.run(iter_max=25)
+
+    return net_opt
+
+
+def scenario2ref():
+    # Comparison with pp-opf:
+    net = create_net2()
+    pp.create_poly_cost(net, 0, 'ext_grid', cp1_eur_per_mw=1)
+    for idx in net.sgen.index:
+        pp.create_poly_cost(net, idx, 'sgen', cp1_eur_per_mw=1)
+    for idx in net.load.index:
+        pp.create_poly_cost(net, idx, 'load', cp1_eur_per_mw=-1)
+    pp.runopp(net, verbose=False)
+    from obj_functs import min_p_loss
+    # Pandapower costs not working: loads are not considered!
+    print(f'My costs: {min_p_loss(net)}')
+    return net
+
+
+def obj_fct1(net):
     """ Re-create the pandapower tutorial from:
     https://github.com/e2nIEE/pandapower/blob/master/tutorials/opf_basic.ipynb
     """
@@ -52,7 +100,7 @@ def obj_fct(net):
     return costs
 
 
-def create_net():
+def create_net1():
     net = pp.create_empty_network()
 
     # create buses
@@ -78,6 +126,58 @@ def create_net():
     eg = pp.create_ext_grid(net, bus1, min_p_mw=-1000, max_p_mw=1000)
     g0 = pp.create_gen(net, bus3, p_mw=80, min_p_mw=0, max_p_mw=80,  vm_pu=1.01, controllable=True)
     g1 = pp.create_gen(net, bus4, p_mw=100, min_p_mw=0, max_p_mw=100, vm_pu=1.01, controllable=True)
+
+    return net
+
+
+def create_net2():
+    """ Net and constraints for optimale reactive power flow. """
+    net = pn.create_cigre_network_mv(with_der='pv_wind')
+
+    # Max and min reactive power feed-in
+    cos_phi = 0.95
+    max_q = np.array([p * (np.arctan(np.arccos(cos_phi))) for p in net.sgen.p_mw])
+    min_q = np.array([-p * (np.arctan(np.arccos(cos_phi)))
+                      for p in net.sgen.p_mw])
+    net.sgen['max_q_mvar'] = pd.Series(max_q, index=net.sgen.index)
+    net.sgen['min_q_mvar'] = pd.Series(min_q, index=net.sgen.index)
+
+    # Max and min active power feed-in (workaround! easier way?)
+    net.sgen['max_p_mw'] = pd.Series(
+        [p*1.01 for p in net.sgen.p_mw], index=net.sgen.index)
+    net.sgen['min_p_mw'] = pd.Series(
+        [p*0.99 for p in net.sgen.p_mw], index=net.sgen.index)
+
+    # Make sgens controllable
+    net.sgen['controllable'] = pd.Series(
+        [True for _ in net.sgen.index], index=net.sgen.index)
+
+    # Max and min active/reactive power feed-in of external grid
+    net.ext_grid['max_p_mw'] = pd.Series(
+        [1000000 for _ in net.ext_grid.index], index=net.ext_grid.index)
+    net.ext_grid['min_p_mw'] = pd.Series(
+        [-1000000 for _ in net.ext_grid.index], index=net.ext_grid.index)
+    net.ext_grid['max_q_mvar'] = pd.Series(
+        [1000000 for _ in net.ext_grid.index], index=net.ext_grid.index)
+    net.ext_grid['min_q_mvar'] = pd.Series(
+        [-1000000 for _ in net.ext_grid.index], index=net.ext_grid.index)
+
+    # Voltage band
+    max_dU = 0.05
+    net.bus['min_vm_pu'] = pd.Series(
+        [1-max_dU for _ in net.bus.index], index=net.bus.index)
+    net.bus['max_vm_pu'] = pd.Series(
+        [1+max_dU for _ in net.bus.index], index=net.bus.index)
+
+    # Line loadings
+    max_loading = 100
+    net.line['max_loading_percent'] = pd.Series(
+        [max_loading for _ in net.line.index], index=net.line.index)
+
+    # Trafo loadings
+    max_loading = 100
+    net.trafo['max_loading_percent'] = pd.Series(
+        [max_loading for _ in net.trafo.index], index=net.trafo.index)
 
     return net
 
