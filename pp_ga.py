@@ -101,9 +101,9 @@ class GeneticAlgorithm(genetic_operators.Mixin):
         print(self.opt_net.trafo)
 
         # Plot results
-        plt.plot(self.best_fit_course)
+        # plt.plot(self.best_fit_course)
         # plt.plot(self.avrg_fit_course)
-        plt.show()
+        # plt.show()
 
         return self.opt_net, self.best_ind.fitness
 
