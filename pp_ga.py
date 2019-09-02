@@ -8,6 +8,8 @@ TODO!
 
 """
 
+from copy import deepcopy
+
 import matplotlib.pyplot as plt
 import pandapower as pp
 
@@ -26,21 +28,20 @@ class GeneticAlgorithm(genetic_operators.Mixin):
         self.mutation_rate = mutation_rate
         self.constraints = constraints
 
-        # Pandapower network which state shall be optimized
-        self.net = net
+        # Pandapower network which state shall be optimized (Make sure that original net does not get altered! -> deepcopy)
+        self.net = deepcopy(net)
 
         # Choose objective function (attention: all objective
-        # function must be written as minimization)
+        # functions must be written as minimization!)
         if isinstance(obj_fct, str):
             # Select from pre-defined fitness functions (e.g. reduce loss)
             import obj_functs
-            # TODO: Nicer way to do this?
-            self.obj_fct = obj_functs.__dict__[obj_fct]
+            self.obj_fct = getattr(obj_functs, obj_fct)
         else:
             # Self-made fitness function (objective function)
             self.obj_fct = obj_fct
 
-        # Choose selection method
+        # Choose selection method (TODO: Make manual selection possible!)
         self.selection = self.tournament
 
         self.best_fit_course = []
@@ -66,7 +67,7 @@ class GeneticAlgorithm(genetic_operators.Mixin):
 
             self.iter += 1
 
-        self.opt_net = self.update_net(self.net, self.best_ind)
+        self.opt_net, _ = self.update_net(self.net, self.best_ind)
 
         print(self.best_ind.fitness)
         print(self.opt_net.sgen)
@@ -84,40 +85,62 @@ class GeneticAlgorithm(genetic_operators.Mixin):
         """ Random initilization of the population. """
         self.pop = [Individuum(self.vars, self.net)
                     for _ in range(self.pop_size)]
+        self.best_ind = self.pop[0]
 
     def fit_fct(self):
         """ Calculate fitness for each individuum, including penalties for
         constraint violations. """
+        worst_fit = -1000000
         for ind in self.pop:
-            net = self.update_net(self.net, ind)
+            net, failure = self.update_net(self.net, ind)
+            if failure is True:
+                ind.failure = True
+                continue
+
+            # Check if constraints are violated and calculate penalty
             penalty, valid = penalty_fct(net, self.constraints)
 
             # Assign fitness value to each individuum
             ind.fitness = self.obj_fct(net=net) + penalty
+            if ind.fitness > worst_fit:
+                worst_fit = ind.fitness
             ind.penalty = penalty
             ind.valid = valid
 
-        self.best_ind = min(self.pop, key=lambda ind: ind.fitness)
-        # TODO: only accept best individuum if valid=True (constraints!)
-        self.best_fit_course.append(self.best_ind.fitness)
+        # Punish individuals were power flow calculation failed so that they
+        # are the worst individuals in population
+        for ind in self.pop:
+            if ind.failure is True:
+                ind.fitness = worst_fit + abs(worst_fit)
+
+        # Evaluation of fitness values
+        best_ind = min(self.pop, key=lambda ind: ind.fitness)
+        self.best_fit_course.append(best_ind.fitness)
+        if best_ind.fitness < self.best_ind.fitness:
+            # TODO: only accept best individuum if valid=True (constraints!)
+            self.best_ind = best_ind
         average_fitness = sum(
             [ind.fitness for ind in self.pop])/len(self.pop)
         self.avrg_fit_course.append(average_fitness)
 
     def term_iter_max(self):
+        """ Terminate if max iteration number is reached. """
         return bool(self.iter >= self.iter_max)
 
     def update_net(self, net, ind):
         """ Update a given pandapower network to the state of a single
         individuum and perform power flow calculation. """
+
+        # Update the actuators to be optimized
         for (unit_type, actuator, idx), nmbr in zip(self.vars, ind):
             net[unit_type][actuator][idx] = nmbr.value
 
+        # Update the power flow results by performing pf-calculation
+        failure = False
         try:
             pp.runpp(net)
         except:
             print('Power flow calculation failed')
-            ind.failure = True
-            # TODO: How to punish failure here -> worst fitness!
+            failure = True
 
-        return net
+        return net, failure

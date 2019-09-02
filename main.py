@@ -32,6 +32,7 @@ Vorteile gegenüber PP-OPF:
 Nachteile:
 - Langsamer
 - Mehr Parameter einzustellen (Populationsgröße, Iterationszahl etc.)
+-> mehr Programmieraufwand bei Anwendung
 """
 
 
