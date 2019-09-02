@@ -18,7 +18,7 @@ class Individuum:
     def random_init(self, vars_in, net):
         self.vars = []
         for unit_type, actuator, idx in vars_in:
-            if actuator == 'p_mw' or actuator == 'q_mvar':
+            if actuator == 'p_mw' or actuator == 'q_mvar' or actuator == 'p_kw' or actuator == 'q_kvar':
                 var = LmtNumber(
                     nmbr_type='float',
                     min_boundary=net[unit_type][f'min_{actuator}'][idx],
