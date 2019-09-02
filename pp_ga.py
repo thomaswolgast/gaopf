@@ -11,9 +11,9 @@ TODO!
 import matplotlib.pyplot as plt
 import pandapower as pp
 
-import genetic_operators
-from util import Individuum
-from penalty_fcts import penalty_fct
+from . import genetic_operators
+from .util import Individuum
+from .penalty_fcts import penalty_fct
 
 
 class GeneticAlgorithm(genetic_operators.Mixin):
@@ -33,7 +33,7 @@ class GeneticAlgorithm(genetic_operators.Mixin):
         # function must be written as minimization)
         if isinstance(obj_fct, str):
             # Select from pre-defined fitness functions (e.g. reduce loss)
-            import obj_functs
+            from . import obj_functs
             # TODO: Nicer way to do this?
             self.obj_fct = obj_functs.__dict__[obj_fct]
         else:

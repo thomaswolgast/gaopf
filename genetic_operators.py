@@ -8,7 +8,7 @@ import random
 
 import numpy as np
 
-from util import Individuum
+from .util import Individuum
 
 
 class Mixin:
