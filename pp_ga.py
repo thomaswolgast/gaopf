@@ -13,16 +13,18 @@ import pandapower as pp
 
 import genetic_operators
 from util import Individuum
+from penalty_fcts import penalty_fct
 
 
 class GeneticAlgorithm(genetic_operators.Mixin):
     def __init__(self, pop_size: int, variables: tuple, net: object,
                  mutation_rate: float,
-                 obj_fct='obj_p_loss', penalty_fct='voltage_band',
+                 obj_fct='obj_p_loss', constraints: tuple='all',
                  selection='tournament'):
         self.pop_size = pop_size
         self.vars = variables
         self.mutation_rate = mutation_rate
+        self.constraints = constraints
 
         # Pandapower network which state shall be optimized
         self.net = net
@@ -37,17 +39,6 @@ class GeneticAlgorithm(genetic_operators.Mixin):
         else:
             # Self-made fitness function (objective function)
             self.obj_fct = obj_fct
-
-        # Choose penalty function to punish constraint violations (gets
-        # added to the fitness)
-        if isinstance(penalty_fct, str):
-            # Select from pre-defined penalty functions (e.g. voltage only)
-            import penalty_fcts
-            # TODO: Nicer way to do this?
-            self.penalty_fct = penalty_fcts.__dict__[penalty_fct]
-        else:
-            # Self-made fitness function (objective function)
-            self.penalty_fct = penalty_fct
 
         # Choose selection method
         self.selection = self.tournament
@@ -82,11 +73,11 @@ class GeneticAlgorithm(genetic_operators.Mixin):
         print(self.opt_net.res_bus)
 
         # Plot results
-        # plt.plot(self.best_fit_course)
-        # # plt.plot(self.avrg_fit_course)
-        # plt.show()
+        plt.plot(self.best_fit_course)
+        # plt.plot(self.avrg_fit_course)
+        plt.show()
 
-        return self.opt_net
+        return self.opt_net, self.best_ind.fitness
 
     def init_pop(self):
         """ Random initilization of the population. """
@@ -98,7 +89,7 @@ class GeneticAlgorithm(genetic_operators.Mixin):
         constraint violations. """
         for ind in self.pop:
             net = self.update_net(self.net, ind)
-            penalty, valid = self.penalty_fct(net=net)
+            penalty, valid = penalty_fct(net, self.constraints)
 
             # Assign fitness value to each individuum
             ind.fitness = self.obj_fct(net=net) + penalty

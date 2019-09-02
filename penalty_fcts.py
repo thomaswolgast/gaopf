@@ -5,20 +5,20 @@ A collection of penalty functions to punish selected constraint violations.
 """
 
 
-def given_constraints(net, constraints):
-    """ Punish a set of constraints. Possible are: voltage band violation 
-    (String: 'voltage_band'), max line loading ('line_load'), max trafo 
+def penalty_fct(net, constraints):
+    """ Punish a set of constraints. Possible are: voltage band violation
+    (String: 'voltage_band'), max line loading ('line_load'), max trafo
     loading ('trafo_load' and/or 'trafo3w_load'). """
     # TODO: Add option to make penelty adjustable! -> ((constraint1, penalty1) ...) ?
 
-    penalty = 0
     if isinstance(constraints, str):
         if constraints == 'none':
             return 0, True
         elif constraints == 'all':
-            constraints = ('voltage_band', 'line_load', 
+            constraints = ('voltage_band', 'line_load',
                            'trafo_load', 'trafo3w_load')
-    
+
+    penalty = 0
     for constraint in constraints:
         penalty += eval(constraint)(net)
 
@@ -30,48 +30,12 @@ def given_constraints(net, constraints):
 
     return penalty, valid
 
-"""
-def all_constraints(net):
-    """ Punish the following constraints: voltage band violation, line load
-    violation, trafo load violation, three winding trafo violation. The
-    punishment is 1 Meuro per 1pu violation. """
-    penalty = (voltage_band(net)
-               + line_load(net)
-               + trafo_load(net)
-               + trafo3w_load(net))
-
-    # Define under which circumstances a solution is seen as valid
-    if penalty > 0:
-        valid = False
-    else:
-        valid = True
-
-    return penalty, valid
-
-
-def loading_only(net):
-    """ Punish the following constraints: line load violation, trafo load
-    violation, three winding trafo violation. The punishment is 1 Meuro per
-    1pu violation. """
-    penalty = (line_load(net)
-               + trafo_load(net)
-               + trafo3w_load(net))
-
-    # Define under which circumstances a solution is seen as valid
-    if penalty > 0:
-        valid = False
-    else:
-        valid = True
-
-    return penalty, valid
-"""
 
 def voltage_band(net):
     """ Punish voltage violations with 1 Meuro per 1pu violation.
     See https://pandapower.readthedocs.io/en/v2.1.0/opf/formulation.html for
     default voltage band values. """
     # TODO: divide upper and lower boundary into two functions?
-
     # TODO: Make costs adjustable!
     costs = 1000000
 
