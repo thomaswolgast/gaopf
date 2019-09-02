@@ -10,6 +10,7 @@ class Individuum:
     def __init__(self, vars_in: tuple, net: object, set_vars: tuple=None):
         if set_vars is not None:
             self.vars = set_vars
+            assert isinstance(set_vars[0], LmtNumber)
         else:
             self.random_init(vars_in, net)
         self.reset()
@@ -68,7 +69,7 @@ class LmtNumber:
         if set_value is not None:
             self.value = set_value
         else:
-            self.value = self.random_init()
+            self.random_init()
 
     def __repr__(self):
         return str(self.value)
@@ -79,13 +80,36 @@ class LmtNumber:
 
     @value.setter
     def value(self, set_value):
-        """ Make sure 'value' stays always within boundaries. """
-        self._value = max(
-            min(self.max_boundary, set_value), self.min_boundary)
+        # Make sure integer remains integer (round randomly)
+        if self.type == 'int':
+            self._value = round(set_value+random.random()/2)
+        else:
+            self._value = set_value
 
+        # Make sure 'value' stays always within boundaries.
+        self._value = max(
+            min(self.max_boundary, self._value), self.min_boundary)
+
+    # TODO: Make subclassed instead of type-checking?!
     def random_init(self):
         """ Init value with a random number between the boundaries """
         if self.type == 'float':
-            return random.random() * self.range + self.min_boundary
+            self.value = random.random() * self.range + self.min_boundary
         elif self.type == 'int':
-            return random.randint(self.min_boundary, self.max_boundary)
+            self.value = random.randint(self.min_boundary, self.max_boundary)
+
+    def increase(self):
+        """ Increase value slightly. """
+        if self.type == 'float':
+            # Increase by random value between 0% and 100%
+            self.value += random.random() * self.range
+        elif self.type == 'int':
+            self.value += 1
+
+    def decrease(self):
+        """ Increase value slightly. """
+        if self.type == 'float':
+            # Decrease by random value between 0% and 100%
+            self.value -= random.random() * self.range
+        elif self.type == 'int':
+            self.value -= 1

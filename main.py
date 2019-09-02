@@ -82,7 +82,7 @@ def scenario2():
 
     ga = pp_ga.GeneticAlgorithm(pop_size=150, variables=variables,
                                 net=net, mutation_rate=0.001,
-                                obj_fct='min_v2_deviations',
+                                obj_fct='min_p_loss',
                                 constraints='all')
 
     net_opt, costs = ga.run(iter_max=15)

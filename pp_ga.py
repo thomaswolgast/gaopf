@@ -25,7 +25,10 @@ class GeneticAlgorithm(genetic_operators.Mixin):
                  mutation_rate: float,
                  obj_fct='obj_p_loss',
                  constraints: tuple='all',
-                 selection='tournament'):
+                 selection: str='tournament',
+                 crossover: str='single_point',
+                 mutation: dict={'random_init': 1.0}):
+        """ TODO: proper documentation. """
         self.pop_size = pop_size
         self.vars = variables
         self.mutation_rate = mutation_rate
@@ -49,7 +52,9 @@ class GeneticAlgorithm(genetic_operators.Mixin):
             self.obj_fct = obj_fct
 
         # Choose selection method (TODO: Make manual selection possible!)
-        self.selection = self.tournament
+        self.sel_operator = selection
+        self.cross_operator = crossover
+        self.mut_operators = mutation
 
         self.best_fit_course = []
         self.avrg_fit_course = []
@@ -80,14 +85,16 @@ class GeneticAlgorithm(genetic_operators.Mixin):
             self.fit_fct()
             if self.termination() is True:
                 break
-            self.selection()
-            self.recombination('single_point')
-            self.mutation(self.mutation_rate)
+            self.selection(sel_operator=self.sel_operator)
+            self.recombination(cross_operator=self.cross_operator)
+            self.mutation(self.mutation_rate,
+                          mut_operators=self.mut_operators)
 
             self.iter += 1
 
         self.opt_net, _ = self.update_net(self.net, self.best_ind)
 
+        # Delete! -> proper logging!
         print(self.best_ind.fitness)
         print(self.opt_net.sgen)
         print(self.opt_net.res_bus)
@@ -105,12 +112,11 @@ class GeneticAlgorithm(genetic_operators.Mixin):
         self.pop = [Individuum(self.vars, self.net)
                     for _ in range(self.pop_size)]
         self.best_ind = self.pop[0]
-        self.best_ind.fitness = 1000000
+        self.best_ind.fitness = 1e9
 
     def fit_fct(self):
-        """ Calculate fitness for each individuum, including penalties for
-        constraint violations. """
-        worst_fit = -1000000
+        """ Calculate fitness for each individual, including penalties for
+        constraint violations which gets added to the objective function. """
         for ind in self.pop:
             net, ind.failure = self.update_net(self.net, ind)
 
@@ -121,18 +127,16 @@ class GeneticAlgorithm(genetic_operators.Mixin):
             # Check if constraints are violated and calculate penalty
             ind.penalty, ind.valid = penalty_fct(net, self.constraints)
 
-            # Assign fitness value to each individuum
+            # Assign fitness value to each individual
             ind.fitness = self.obj_fct(net=net) + ind.penalty
-            if ind.fitness > worst_fit:
-                worst_fit = ind.fitness
 
         # Delete individuals with failed power flow
-        self.pop = [ind for ind in self.pop if ~ind.failure]
+        self.pop = [ind for ind in self.pop if not ind.failure]
 
         # Evaluation of fitness values
         best_ind = min(self.pop, key=lambda ind: ind.fitness)
         self.best_fit_course.append(best_ind.fitness)
-        if best_ind.fitness < self.best_ind.fitness and best_ind.valid:
+        if (best_ind.fitness < self.best_ind.fitness) and best_ind.valid:
             self.best_ind = best_ind
 
         average_fitness = sum(
@@ -145,7 +149,7 @@ class GeneticAlgorithm(genetic_operators.Mixin):
 
     def update_net(self, net, ind):
         """ Update a given pandapower network to the state of a single
-        individuum and perform power flow calculation. """
+        individual and perform power flow calculation. """
 
         # Update the actuators to be optimized
         for (unit_type, actuator, idx), nmbr in zip(self.vars, ind):
