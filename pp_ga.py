@@ -19,26 +19,33 @@ from penalty_fcts import penalty_fct
 
 
 class GeneticAlgorithm(genetic_operators.Mixin):
-    def __init__(self, pop_size: int, variables: tuple, net: object,
+    def __init__(self, pop_size: int,
+                 variables: tuple,
+                 net: object,
                  mutation_rate: float,
-                 obj_fct='obj_p_loss', constraints: tuple='all',
+                 obj_fct='obj_p_loss',
+                 constraints: tuple='all',
                  selection='tournament'):
         self.pop_size = pop_size
         self.vars = variables
         self.mutation_rate = mutation_rate
         self.constraints = constraints
 
-        # Pandapower network which state shall be optimized (Make sure that original net does not get altered! -> deepcopy)
+        # Pandapower network which state shall be optimized (Make sure that
+        # original net does not get altered! -> deepcopy)
         self.net = deepcopy(net)
+
+        self.assert_unit_state('controllable')
+        self.assert_unit_state('in_service')
 
         # Choose objective function (attention: all objective
         # functions must be written as minimization!)
         if isinstance(obj_fct, str):
-            # Select from pre-defined fitness functions (e.g. reduce loss)
+            # Select from pre-defined objective functions (e.g. reduce loss)
             import obj_functs
             self.obj_fct = getattr(obj_functs, obj_fct)
         else:
-            # Self-made fitness function (objective function)
+            # Self-made objective function
             self.obj_fct = obj_fct
 
         # Choose selection method (TODO: Make manual selection possible!)
@@ -47,6 +54,18 @@ class GeneticAlgorithm(genetic_operators.Mixin):
         self.best_fit_course = []
         self.avrg_fit_course = []
         self.iter = 0
+
+    def assert_unit_state(self, status: str='controllable'):
+        """ Assert that units to be optimized are usable beforehand by
+        checking 'in_service' or 'controllable' of each actuator. If they
+        are not defined, they are assumed to be True. """
+        for unit_type, actuator, idx in self.vars:
+            if status not in self.net[unit_type]:
+                print(f"'{status}' not defined. Assumed to be True!")
+                break
+            else:
+                assert bool(self.net[unit_type][status][idx]) is True, f"""
+                            Error: {unit_type}-{idx} is not '{status}'!"""
 
     def run(self, iter_max: int=None):
         """ Run genetic algorithm until termination. """
@@ -137,7 +156,7 @@ class GeneticAlgorithm(genetic_operators.Mixin):
         try:
             pp.runpp(net)
         except:
-            print('Power flow calculation failed')
+            print('Power flow calculation failed!')
             failure = True
 
         return net, failure

@@ -67,7 +67,7 @@ def scenario2():
     net = create_net2()
 
     # Degrees of freedom for optimization
-    # TODO: how to make easy? (if index == xxx: use all indexes?)
+    # TODO: how to make easier? (if index == xxx: use all indexes?)
     variables = (('sgen', 'q_mvar', 0),
                  ('sgen', 'q_mvar', 1),
                  ('sgen', 'q_mvar', 2),
@@ -82,7 +82,7 @@ def scenario2():
 
     ga = pp_ga.GeneticAlgorithm(pop_size=150, variables=variables,
                                 net=net, mutation_rate=0.001,
-                                obj_fct='min_p_loss',
+                                obj_fct='min_v2_deviations',
                                 constraints='all')
 
     net_opt, costs = ga.run(iter_max=15)
@@ -189,6 +189,10 @@ def create_net2():
     net.trafo.tap_step_percent = pd.Series([2.5, 2.5], index=net.trafo.index)
     net.trafo.tap_step_degree = pd.Series([0, 0], index=net.trafo.index)
     net.trafo.tap_side = pd.Series(['hv', 'hv'], index=net.trafo.index)
+
+    # Make trafo controllable
+    net.trafo['controllable'] = pd.Series(
+        [True for _ in net.trafo.index], index=net.trafo.index)
 
     # Constraints: Voltage band
     max_dU = 0.05
