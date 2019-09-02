@@ -13,11 +13,21 @@ import pp_ga
 
 """
 TODO:
-- Größeres Netz erstellen und testen!
 - Zwei arrays für int und float, um die operatoren für beides zu optimieren
 und zu differenzieren?
 - Zeitmessung integrieren, um Verbesserungspotenzial zu finden
 - Unterschiede zu pandapower-OPF herausarbeiten -> weiterentwickeln sinnvoll?
+"""
+
+"""
+Vorteile gegenüber PP-OPF:
+- P und Q getrennt optimierbar
+- beliebige Zielfunktionen
+- Trafos mit optimieren
+- Switches mit optimieren
+- Bessere Chancen auf Konvergenz (mit potenzieller constraint verletzung)
+- Constraints können (bzw. müssen) als soft-constraints berücksichtigt werden
+-> macht optimale Einhaltung der RB als Zielfunktion möglich (min sum(U^2-1))
 """
 
 
