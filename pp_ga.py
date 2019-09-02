@@ -86,39 +86,36 @@ class GeneticAlgorithm(genetic_operators.Mixin):
         self.pop = [Individuum(self.vars, self.net)
                     for _ in range(self.pop_size)]
         self.best_ind = self.pop[0]
+        self.best_ind.fitness = 1000000
 
     def fit_fct(self):
         """ Calculate fitness for each individuum, including penalties for
         constraint violations. """
         worst_fit = -1000000
         for ind in self.pop:
-            net, failure = self.update_net(self.net, ind)
-            if failure is True:
-                ind.failure = True
+            net, ind.failure = self.update_net(self.net, ind)
+
+            # Check for failed power flow calculation
+            if ind.failure is True:
                 continue
 
             # Check if constraints are violated and calculate penalty
-            penalty, valid = penalty_fct(net, self.constraints)
+            ind.penalty, ind.valid = penalty_fct(net, self.constraints)
 
             # Assign fitness value to each individuum
-            ind.fitness = self.obj_fct(net=net) + penalty
+            ind.fitness = self.obj_fct(net=net) + ind.penalty
             if ind.fitness > worst_fit:
                 worst_fit = ind.fitness
-            ind.penalty = penalty
-            ind.valid = valid
 
-        # Punish individuals were power flow calculation failed so that they
-        # are the worst individuals in population
-        for ind in self.pop:
-            if ind.failure is True:
-                ind.fitness = worst_fit + abs(worst_fit)
+        # Delete individuals with failed power flow
+        self.pop = [ind for ind in self.pop if ~ind.failure]
 
         # Evaluation of fitness values
         best_ind = min(self.pop, key=lambda ind: ind.fitness)
         self.best_fit_course.append(best_ind.fitness)
-        if best_ind.fitness < self.best_ind.fitness:
-            # TODO: only accept best individuum if valid=True (constraints!)
+        if best_ind.fitness < self.best_ind.fitness and best_ind.valid:
             self.best_ind = best_ind
+
         average_fitness = sum(
             [ind.fitness for ind in self.pop])/len(self.pop)
         self.avrg_fit_course.append(average_fitness)
