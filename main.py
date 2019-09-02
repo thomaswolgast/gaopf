@@ -28,12 +28,16 @@ Vorteile gegenüber PP-OPF:
 - Bessere Chancen auf Konvergenz (mit potenzieller constraint verletzung)
 - Constraints können (bzw. müssen) als soft-constraints berücksichtigt werden
 -> macht optimale Einhaltung der RB als Zielfunktion möglich (min sum(U^2-1))
+
+Nachteile:
+- Langsamer
+- Mehr Parameter einzustellen (Populationsgröße, Iterationszahl etc.)
 """
 
 
 def main():
-    net = scenario2()
-    net_ref = scenario2ref()
+    net, _ = scenario2()
+    net_ref, _ = scenario2ref()
     return net, net_ref
 
 
@@ -46,7 +50,7 @@ def scenario1():
                                 net=net, mutation_rate=0.001,
                                 obj_fct=obj_fct1,
                                 constraints='all')
-    ga.run(iter_max=30)
+    ga.run(iter_max=20)
 
     # Compare with pp-OPF
     net = create_net1()
@@ -62,7 +66,7 @@ def scenario2():
     net = create_net2()
 
     # Degrees of freedom for optimization
-    # TODO: how to make easy? (if index == xxx: use all indexes)
+    # TODO: how to make easy? (if index == xxx: use all indexes?)
     variables = (('sgen', 'q_mvar', 0),
                  ('sgen', 'q_mvar', 1),
                  ('sgen', 'q_mvar', 2),
@@ -145,7 +149,7 @@ def create_net1():
 
 
 def create_net2():
-    """ Net and constraints for optimale reactive power flow. """
+    """ Cigre MV: Net and constraints for optimale reactive power flow. """
     net = pn.create_cigre_network_mv(with_der='pv_wind')
 
     # Max and min reactive power feed-in
