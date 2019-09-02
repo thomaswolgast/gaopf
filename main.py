@@ -71,10 +71,9 @@ def scenario2():
                  ('sgen', 'q_mvar', 5),
                  ('sgen', 'q_mvar', 6),
                  ('sgen', 'q_mvar', 7),
-                 ('sgen', 'q_mvar', 8),)
-                 # ('trafo', 'tap_pos', 0),
-                 # ('trafo', 'tap_pos', 1))
-    # For trafo: ('trafo, 'tap_pos', 0)
+                 ('sgen', 'q_mvar', 8),
+                 ('trafo', 'tap_pos', 0),
+                 ('trafo', 'tap_pos', 1))
 
     ga = pp_ga.GeneticAlgorithm(pop_size=150, variables=variables,
                                 net=net, mutation_rate=0.001,
@@ -84,7 +83,7 @@ def scenario2():
     net_opt, costs = ga.run(iter_max=15)
     print(f'Costs of ga-OPF: {costs}')
 
-    return net_opt
+    return net_opt, costs
 
 
 def scenario2ref():
@@ -98,8 +97,9 @@ def scenario2ref():
     pp.runopp(net, verbose=False)
     from obj_functs import min_p_loss
     # Pandapower costs not working: loads are not considered!
-    print(f'Costs of pandapower-OPF: {min_p_loss(net)}')
-    return net
+    costs = min_p_loss(net)
+    print(f'Costs of pandapower-OPF: {costs}')
+    return net, costs
 
 
 def obj_fct1(net):
@@ -176,19 +176,28 @@ def create_net2():
     net.ext_grid['min_q_mvar'] = pd.Series(
         [-1000000 for _ in net.ext_grid.index], index=net.ext_grid.index)
 
-    # Voltage band
+    # Make trafo tap-changable with tap-range [-2, +2]
+    net.trafo.tap_pos = pd.Series([0, 0], index=net.trafo.index)
+    net.trafo.tap_neutral = pd.Series([0, 0], index=net.trafo.index)
+    net.trafo.tap_min = pd.Series([-2, -2], index=net.trafo.index)
+    net.trafo.tap_max = pd.Series([+2, +2], index=net.trafo.index)
+    net.trafo.tap_step_percent = pd.Series([2.5, 2.5], index=net.trafo.index)
+    net.trafo.tap_step_degree = pd.Series([0, 0], index=net.trafo.index)
+    net.trafo.tap_side = pd.Series(['hv', 'hv'], index=net.trafo.index)
+
+    # Constraints: Voltage band
     max_dU = 0.05
     net.bus['min_vm_pu'] = pd.Series(
         [1-max_dU for _ in net.bus.index], index=net.bus.index)
     net.bus['max_vm_pu'] = pd.Series(
         [1+max_dU for _ in net.bus.index], index=net.bus.index)
 
-    # Line loadings
+    # Constraints: Line loadings
     max_loading = 100
     net.line['max_loading_percent'] = pd.Series(
         [max_loading for _ in net.line.index], index=net.line.index)
 
-    # Trafo loadings
+    # Constraints: Trafo loadings
     max_loading = 100
     net.trafo['max_loading_percent'] = pd.Series(
         [max_loading for _ in net.trafo.index], index=net.trafo.index)

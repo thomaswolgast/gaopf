@@ -71,6 +71,7 @@ class GeneticAlgorithm(genetic_operators.Mixin):
         print(self.best_ind.fitness)
         print(self.opt_net.sgen)
         print(self.opt_net.res_bus)
+        print(self.opt_net.trafo)
 
         # Plot results
         plt.plot(self.best_fit_course)
