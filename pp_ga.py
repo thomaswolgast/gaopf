@@ -28,12 +28,14 @@ class GeneticAlgorithm(genetic_operators.Mixin):
                  selection: str='tournament',
                  crossover: str='single_point',
                  mutation: dict={'random_init': 1.0},
+                 termination: str='none', #option for termination: 'None', 'cmp_last', 'cmp_average'
                  plot: bool=False):
         """ TODO: proper documentation. """
         self.pop_size = pop_size
         self.vars = variables
         self.mutation_rate = mutation_rate
         self.constraints = constraints
+        self.termination_criteria = termination
 
         # Pandapower network which state shall be optimized (Make sure that
         # original net does not get altered! -> deepcopy)
@@ -62,6 +64,7 @@ class GeneticAlgorithm(genetic_operators.Mixin):
         self.iter = 0
         self.plot = plot
 
+
     def assert_unit_state(self, status: str='controllable'):
         """ Assert that units to be optimized are usable beforehand by
         checking 'in_service' or 'controllable' of each actuator. If they
@@ -83,7 +86,12 @@ class GeneticAlgorithm(genetic_operators.Mixin):
         self.init_pop()
 
         while True:
-            print(f'Step {self.iter}')
+            if self.iter > 3 and self.termination_criteria == 'cmp_last':
+                print(f'Step {self.iter}, diff to last: {(self.best_fit_course[-1]-self.best_fit_course[-2])**2}')
+            elif self.iter > 3 and self.termination_criteria == 'cmp_average':
+                print(f'Step {self.iter}, diff to average: {(self.best_fit_course[-1]-self.avrg_fit_course[-1])**2}')
+            else:
+                print(f'Step {self.iter}')
             self.fit_fct()
             if self.termination() is True:
                 break
@@ -148,6 +156,16 @@ class GeneticAlgorithm(genetic_operators.Mixin):
 
     def term_iter_max(self):
         """ Terminate if max iteration number is reached. """
+        if self.iter >= self.iter_max:
+            return True
+
+        if self.iter > 2:
+            if self.termination_criteria == 'cmp_last' and (self.best_fit_course[-1]-self.best_fit_course[-2])**2 < 10**-3:
+                return True
+
+            if self.termination_criteria == 'cmp_average' and (self.best_fit_course[-1]-self.avrg_fit_course[-1])**2 < 10**-3:
+                return True
+
         return bool(self.iter >= self.iter_max)
 
     def update_net(self, net, ind):
