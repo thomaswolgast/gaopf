@@ -83,7 +83,8 @@ def scenario2():
     ga = pp_ga.GeneticAlgorithm(pop_size=150, variables=variables,
                                 net=net, mutation_rate=0.001,
                                 obj_fct='min_p_loss',
-                                constraints='all')
+                                constraints='all',
+                                plot=False)
 
     net_opt, costs = ga.run(iter_max=15)
     print(f'Costs of ga-OPF: {costs}')

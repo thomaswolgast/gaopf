@@ -28,7 +28,8 @@ class GeneticAlgorithm(genetic_operators.Mixin):
                  selection: str='tournament',
                  crossover: str='single_point',
                  mutation: dict={'random_init': 1.0},
-                 termination: str='none'): #option for termination: 'None', 'cmp_last', 'cmp_average'
+                 termination: str='none', #option for termination: 'None', 'cmp_last', 'cmp_average'
+                 plot: bool=False):
         """ TODO: proper documentation. """
         self.pop_size = pop_size
         self.vars = variables
@@ -61,6 +62,7 @@ class GeneticAlgorithm(genetic_operators.Mixin):
         self.best_fit_course = []
         self.avrg_fit_course = []
         self.iter = 0
+        self.plot = plot
 
 
     def assert_unit_state(self, status: str='controllable'):
@@ -109,9 +111,10 @@ class GeneticAlgorithm(genetic_operators.Mixin):
         print(self.opt_net.trafo)
 
         # Plot results
-        # plt.plot(self.best_fit_course)
-        # plt.plot(self.avrg_fit_course)
-        # plt.show()
+        if self.plot is True:
+            plt.plot(self.best_fit_course)
+            # plt.plot(self.avrg_fit_course)
+            plt.show()
 
         return self.opt_net, self.best_ind.fitness
 
