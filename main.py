@@ -83,7 +83,8 @@ def scenario2():
     ga = pp_ga.GeneticAlgorithm(pop_size=150, variables=variables,
                                 net=net, mutation_rate=0.001,
                                 obj_fct='min_p_loss',
-                                constraints='all')
+                                constraints='all',
+                                plot=False)
 
     net_opt, costs = ga.run(iter_max=15)
     print(f'Costs of ga-OPF: {costs}')
@@ -100,7 +101,7 @@ def scenario2ref():
     for idx in net.load.index:
         pp.create_poly_cost(net, idx, 'load', cp1_eur_per_mw=-1)
     pp.runopp(net, verbose=False)
-    from obj_functs import min_p_loss
+    from .obj_functs import min_p_loss
     # Pandapower costs not working: loads are not considered!
     costs = min_p_loss(net)
     print(f'Costs of pandapower-OPF: {costs}')
