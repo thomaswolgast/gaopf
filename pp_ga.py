@@ -13,9 +13,9 @@ from copy import deepcopy
 import matplotlib.pyplot as plt
 import pandapower as pp
 
-import genetic_operators
-from util import Individuum
-from penalty_fcts import penalty_fct
+from . import genetic_operators
+from .util import Individuum
+from .penalty_fcts import penalty_fct
 
 
 class GeneticAlgorithm(genetic_operators.Mixin):
@@ -45,7 +45,7 @@ class GeneticAlgorithm(genetic_operators.Mixin):
         # functions must be written as minimization!)
         if isinstance(obj_fct, str):
             # Select from pre-defined objective functions (e.g. reduce loss)
-            import obj_functs
+            from . import obj_functs
             self.obj_fct = getattr(obj_functs, obj_fct)
         else:
             # Self-made objective function
@@ -101,9 +101,9 @@ class GeneticAlgorithm(genetic_operators.Mixin):
         print(self.opt_net.trafo)
 
         # Plot results
-        plt.plot(self.best_fit_course)
+        # plt.plot(self.best_fit_course)
         # plt.plot(self.avrg_fit_course)
-        plt.show()
+        # plt.show()
 
         return self.opt_net, self.best_ind.fitness
 

@@ -9,7 +9,7 @@ import pandas as pd
 import pandapower as pp
 import pandapower.networks as pn
 
-import pp_ga
+from . import pp_ga
 
 """
 TODO:
