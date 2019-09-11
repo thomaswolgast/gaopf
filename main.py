@@ -13,7 +13,7 @@ from . import pp_ga
 
 """
 TODO:
-- Zwei arrays für int und float, um die operatoren für beides zu optimieren
+- Zwei arrays für int und float, um die operatoren für beides zu optimieren (oder ints durch floats ersetzen und immer runden?)
 und zu differenzieren?
 - Zeitmessung integrieren, um Verbesserungspotenzial zu finden
 - Unterschiede zu pandapower-OPF herausarbeiten -> weiterentwickeln sinnvoll?
@@ -84,7 +84,8 @@ def scenario2():
                                 net=net, mutation_rate=0.001,
                                 obj_fct='min_p_loss',
                                 constraints='all',
-                                plot=False)
+                                plot=True,
+                                termination='cmp_last')
 
     net_opt, costs = ga.run(iter_max=15)
     print(f'Costs of ga-OPF: {costs}')
@@ -144,7 +145,7 @@ def create_net1():
 
     # create generators
     eg = pp.create_ext_grid(net, bus1, min_p_mw=-1000, max_p_mw=1000)
-    g0 = pp.create_gen(net, bus3, p_mw=80, min_p_mw=0, max_p_mw=80,  vm_pu=1.01, controllable=True)
+    g0 = pp.create_gen(net, bus3, p_mw=80, min_p_mw=0, max_p_mw=80, vm_pu=1.01, controllable=True)
     g1 = pp.create_gen(net, bus4, p_mw=100, min_p_mw=0, max_p_mw=100, vm_pu=1.01, controllable=True)
 
     return net
@@ -164,9 +165,9 @@ def create_net2():
 
     # Max and min active power feed-in (workaround! easier way?)
     net.sgen['max_p_mw'] = pd.Series(
-        [p*1.01 for p in net.sgen.p_mw], index=net.sgen.index)
+        [p * 1.01 for p in net.sgen.p_mw], index=net.sgen.index)
     net.sgen['min_p_mw'] = pd.Series(
-        [p*0.99 for p in net.sgen.p_mw], index=net.sgen.index)
+        [p * 0.99 for p in net.sgen.p_mw], index=net.sgen.index)
 
     # Make sgens controllable
     net.sgen['controllable'] = pd.Series(
@@ -198,9 +199,9 @@ def create_net2():
     # Constraints: Voltage band
     max_dU = 0.05
     net.bus['min_vm_pu'] = pd.Series(
-        [1-max_dU for _ in net.bus.index], index=net.bus.index)
+        [1 - max_dU for _ in net.bus.index], index=net.bus.index)
     net.bus['max_vm_pu'] = pd.Series(
-        [1+max_dU for _ in net.bus.index], index=net.bus.index)
+        [1 + max_dU for _ in net.bus.index], index=net.bus.index)
 
     # Constraints: Line loadings
     max_loading = 100

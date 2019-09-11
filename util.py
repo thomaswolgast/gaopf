@@ -6,7 +6,7 @@
 import random
 
 
-class Individuum:
+class Individual:
     def __init__(self, vars_in: tuple, net: object, set_vars: tuple=None):
         if set_vars is not None:
             self.vars = set_vars
@@ -33,7 +33,7 @@ class Individuum:
 
     def reset(self):
         self.fitness = None
-        # Did this individuum lead to failed power flow calculation?
+        # Did this individual lead to failed power flow calculation?
         self.failure = None
         # Valid solution? All constraints satisfied?
         self.valid = None
@@ -56,6 +56,7 @@ class Individuum:
 
 class LmtNumber:
     """ A number that is restricted to a given range of values. """
+
     def __init__(self, nmbr_type: str, min_boundary, max_boundary,
                  set_value=None):
         assert nmbr_type in ('float', 'int')
@@ -82,7 +83,7 @@ class LmtNumber:
     def value(self, set_value):
         # Make sure integer remains integer (round randomly)
         if self.type == 'int':
-            self._value = round(set_value+random.random()/2)
+            self._value = round(set_value + random.random() / 2)
         else:
             self._value = set_value
 

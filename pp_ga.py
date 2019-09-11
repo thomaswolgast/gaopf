@@ -3,9 +3,6 @@
 An optimal power flow algorithm based on a genetic algorithm for pandapower
 networks.
 
-Advantages compared to pre-implemented pandapower OPF:
-TODO!
-
 """
 
 from copy import deepcopy
@@ -14,7 +11,7 @@ import matplotlib.pyplot as plt
 import pandapower as pp
 
 from . import genetic_operators
-from .util import Individuum
+from .util import Individual
 from .penalty_fcts import penalty_fct
 
 
@@ -28,14 +25,14 @@ class GeneticAlgorithm(genetic_operators.Mixin):
                  selection: str='tournament',
                  crossover: str='single_point',
                  mutation: dict={'random_init': 1.0},
-                 termination: str='none', #option for termination: 'None', 'cmp_last', 'cmp_average'
+                 termination: str='cmp_last',  # option for termination: 'cmp_last', 'cmp_avrg'
                  plot: bool=False):
-        """ TODO: proper documentation. """
+        """ TODO: proper documentation! """
         self.pop_size = pop_size
         self.vars = variables
         self.mutation_rate = mutation_rate
         self.constraints = constraints
-        self.termination_criteria = termination
+        self.termination_crit = termination
 
         # Pandapower network which state shall be optimized (Make sure that
         # original net does not get altered! -> deepcopy)
@@ -54,16 +51,15 @@ class GeneticAlgorithm(genetic_operators.Mixin):
             # Self-made objective function
             self.obj_fct = obj_fct
 
-        # Choose selection method (TODO: Make manual selection possible!)
         self.sel_operator = selection
         self.cross_operator = crossover
         self.mut_operators = mutation
 
+        # TODO: Also track total best fit! (for termination)
         self.best_fit_course = []
         self.avrg_fit_course = []
         self.iter = 0
         self.plot = plot
-
 
     def assert_unit_state(self, status: str='controllable'):
         """ Assert that units to be optimized are usable beforehand by
@@ -81,17 +77,11 @@ class GeneticAlgorithm(genetic_operators.Mixin):
         """ Run genetic algorithm until termination. """
         if iter_max is not None:
             self.iter_max = iter_max
-            self.termination = self.term_iter_max
 
         self.init_pop()
 
         while True:
-            if self.iter > 3 and self.termination_criteria == 'cmp_last':
-                print(f'Step {self.iter}, diff to last: {(self.best_fit_course[-1]-self.best_fit_course[-2])**2}')
-            elif self.iter > 3 and self.termination_criteria == 'cmp_average':
-                print(f'Step {self.iter}, diff to average: {(self.best_fit_course[-1]-self.avrg_fit_course[-1])**2}')
-            else:
-                print(f'Step {self.iter}')
+            print(f'Step {self.iter}')
             self.fit_fct()
             if self.termination() is True:
                 break
@@ -105,7 +95,7 @@ class GeneticAlgorithm(genetic_operators.Mixin):
         self.opt_net, _ = self.update_net(self.net, self.best_ind)
 
         # Delete! -> proper logging!
-        print(self.best_ind.fitness)
+        print('Resulting costs: ', self.best_ind.fitness)
         print(self.opt_net.sgen)
         print(self.opt_net.res_bus)
         print(self.opt_net.trafo)
@@ -120,7 +110,7 @@ class GeneticAlgorithm(genetic_operators.Mixin):
 
     def init_pop(self):
         """ Random initilization of the population. """
-        self.pop = [Individuum(self.vars, self.net)
+        self.pop = [Individual(self.vars, self.net)
                     for _ in range(self.pop_size)]
         self.best_ind = self.pop[0]
         self.best_ind.fitness = 1e9
@@ -151,22 +141,31 @@ class GeneticAlgorithm(genetic_operators.Mixin):
             self.best_ind = best_ind
 
         average_fitness = sum(
-            [ind.fitness for ind in self.pop])/len(self.pop)
+            [ind.fitness for ind in self.pop]) / len(self.pop)
         self.avrg_fit_course.append(average_fitness)
 
-    def term_iter_max(self):
+    def termination(self):
         """ Terminate if max iteration number is reached. """
         if self.iter >= self.iter_max:
             return True
 
-        if self.iter > 2:
-            if self.termination_criteria == 'cmp_last' and (self.best_fit_course[-1]-self.best_fit_course[-2])**2 < 10**-3:
-                return True
+        if self.termination_crit == 'cmp_last':
+            iter_range = 5  # TODO: Hardcoded! (Make it a variable? Or user-defined fct?)
+            if self.iter > iter_range:
+                improvement = self.best_fit_course[-iter_range] - self.best_fit_course[-1]
+                relative_improvement = improvement / self.best_fit_course[-iter_range]
+                min_improvement = 10**-3  # TODO: Hardcoded!
+                print(f'Relative improvement in last {iter_range} steps: {relative_improvement}')
+                if relative_improvement < min_improvement:
+                    return True
 
-            if self.termination_criteria == 'cmp_average' and (self.best_fit_course[-1]-self.avrg_fit_course[-1])**2 < 10**-3:
+        if self.termination_crit == 'cmp_avrg':
+            diff_to_avrg = self.avrg_fit_course[-1] - self.best_fit_course[-1]
+            rel_diff_to_avrg = diff_to_avrg / self.avrg_fit_course[-1]
+            min_difference = 10**-3
+            print(f'Relative difference to average: {rel_diff_to_avrg}')
+            if rel_diff_to_avrg < min_difference:
                 return True
-
-        return bool(self.iter >= self.iter_max)
 
     def update_net(self, net, ind):
         """ Update a given pandapower network to the state of a single

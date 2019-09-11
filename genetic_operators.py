@@ -8,7 +8,7 @@ import random
 
 import numpy as np
 
-from .util import Individuum
+from .util import Individual
 
 
 class Mixin:
@@ -22,9 +22,9 @@ class Mixin:
 
     def tournament(self, group_size: int=3):
         """ Tournament selection: Divive population in groups of size n and
-        select the best individuum of each group as parent. """
+        select the best individual of each group as parent. """
         for idx in range(0, self.pop_size, group_size):
-            group = self.pop[idx:(idx+group_size)]
+            group = self.pop[idx:(idx + group_size)]
             parent = min(group, key=lambda ind: ind.fitness)
             self.parents.append(parent)
 
@@ -39,24 +39,24 @@ class Mixin:
             crossover = getattr(self, cross_operator)
             child_chromosomes = crossover(parent1, parent2)
             # Create new individual as child of two parents
-            child = Individuum(self.vars, self.net, child_chromosomes)
+            child = Individual(self.vars, self.net, child_chromosomes)
             self.pop.append(child)
 
     def single_point(self, parent1, parent2):
         """ Single Point Crossover: Divide chromosomes at one random point
         and recombine them. """
-        cut_point = random.randint(1, len(self.vars)-1)
+        cut_point = random.randint(1, len(self.vars) - 1)
         return parent1[0:cut_point] + parent2[cut_point:]
 
     def average(self, parent1, parent2):
         """ Average crossover: The child is the exact average of both
         parents. Attention: Only applicable to floats! """
-        return [(gene1+gene2)/2 for gene1, gene2 in zip(parent1, parent2)]
+        return [(gene1 + gene2) / 2 for gene1, gene2 in zip(parent1, parent2)]
 
     # ---------------------Mutation operators-------------------------
     def mutation(self, mutation_rate: float,
                  mut_operators: dict={'random_init': 1.0}):
-        """ Mutation: Adjust a single gene of every individuum with a small
+        """ Mutation: Adjust a single gene of every individual with a small
         probability.
 
         Structure of 'mut_operators':
