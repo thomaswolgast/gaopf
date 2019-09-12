@@ -6,6 +6,7 @@ networks.
 """
 
 from copy import deepcopy
+import sys
 
 import matplotlib.pyplot as plt
 import pandapower as pp
@@ -16,17 +17,19 @@ from .penalty_fcts import penalty_fct
 
 
 class GeneticAlgorithm(genetic_operators.Mixin):
-    def __init__(self, pop_size: int,
+    def __init__(self,
+                 pop_size: int,
                  variables: tuple,
                  net: object,
-                 mutation_rate: float,
+                 mutation_rate: float,  # TODO: Find good default!
                  obj_fct='obj_p_loss',
                  constraints: tuple='all',
                  selection: str='tournament',
                  crossover: str='single_point',
                  mutation: dict={'random_init': 1.0},
                  termination: str='cmp_last',  # option for termination: 'cmp_last', 'cmp_avrg'
-                 plot: bool=False):
+                 plot: bool=False,
+                 save: bool=False):
         """ TODO: proper documentation! """
         self.pop_size = pop_size
         self.vars = variables
@@ -55,20 +58,20 @@ class GeneticAlgorithm(genetic_operators.Mixin):
         self.cross_operator = crossover
         self.mut_operators = mutation
 
-        # TODO: Also track total best fit! (for termination)
+        self.total_best_fit_course = []
         self.best_fit_course = []
         self.avrg_fit_course = []
         self.iter = 0
         self.plot = plot
+        self.save = save
 
     def assert_unit_state(self, status: str='controllable'):
         """ Assert that units to be optimized are usable beforehand by
         checking 'in_service' or 'controllable' of each actuator. If they
         are not defined, they are assumed to be True. """
-        for unit_type, actuator, idx in self.vars:
+        for unit_type, _, idx in self.vars:
             if status not in self.net[unit_type]:
-                print(f"'{status}' not defined. Assumed to be True!")
-                break
+                print(f"'{status}' of {unit_type}_{idx} not defined. Assumed to be True!")
             else:
                 assert bool(self.net[unit_type][status][idx]) is True, f"""
                             Error: {unit_type}-{idx} is not '{status}'!"""
@@ -102,9 +105,7 @@ class GeneticAlgorithm(genetic_operators.Mixin):
 
         # Plot results
         if self.plot is True:
-            plt.plot(self.best_fit_course)
-            # plt.plot(self.avrg_fit_course)
-            plt.show()
+            self.plot_fit_courses()
 
         return self.opt_net, self.best_ind.fitness
 
@@ -131,14 +132,15 @@ class GeneticAlgorithm(genetic_operators.Mixin):
             # Assign fitness value to each individual
             ind.fitness = self.obj_fct(net=net) + ind.penalty
 
-        # Delete individuals with failed power flow
-        self.pop = [ind for ind in self.pop if not ind.failure]
+        # Delete individuals with failed power flow (not evaluatable)
+        self.pop = tuple(filter(lambda ind: not ind.failure, self.pop))
 
         # Evaluation of fitness values
         best_ind = min(self.pop, key=lambda ind: ind.fitness)
         self.best_fit_course.append(best_ind.fitness)
         if (best_ind.fitness < self.best_ind.fitness) and best_ind.valid:
             self.best_ind = best_ind
+        self.total_best_fit_course.append(self.best_ind.fitness)
 
         average_fitness = sum(
             [ind.fitness for ind in self.pop]) / len(self.pop)
@@ -152,17 +154,17 @@ class GeneticAlgorithm(genetic_operators.Mixin):
         if self.termination_crit == 'cmp_last':
             iter_range = 5  # TODO: Hardcoded! (Make it a variable? Or user-defined fct?)
             if self.iter > iter_range:
-                improvement = self.best_fit_course[-iter_range] - self.best_fit_course[-1]
-                relative_improvement = improvement / self.best_fit_course[-iter_range]
+                improvement = self.total_best_fit_course[-iter_range - 1] - self.best_fit_course[-1]
+                rel_improvement = improvement / self.total_best_fit_course[-iter_range - 1]
                 min_improvement = 10**-3  # TODO: Hardcoded!
-                print(f'Relative improvement in last {iter_range} steps: {relative_improvement}')
-                if relative_improvement < min_improvement:
+                print(f'Relative improvement in last {iter_range} steps: {rel_improvement}')
+                if rel_improvement < min_improvement:
                     return True
 
         if self.termination_crit == 'cmp_avrg':
-            diff_to_avrg = self.avrg_fit_course[-1] - self.best_fit_course[-1]
+            diff_to_avrg = self.avrg_fit_course[-1] - self.total_best_fit_course[-1]
             rel_diff_to_avrg = diff_to_avrg / self.avrg_fit_course[-1]
-            min_difference = 10**-3
+            min_difference = 10**-3  # TODO: Hardcode
             print(f'Relative difference to average: {rel_diff_to_avrg}')
             if rel_diff_to_avrg < min_difference:
                 return True
@@ -179,8 +181,31 @@ class GeneticAlgorithm(genetic_operators.Mixin):
         failure = False
         try:
             pp.runpp(net)
+        except KeyboardInterrupt:
+            print('Optimization interrupted by user. ')
+            sys.exit()
         except:
             print('Power flow calculation failed!')
+            # TODO: Include unit test to make sure this works!
             failure = True
 
         return net, failure
+
+    def plot_fit_courses(self, average_inclusive=False):
+        """ Plot the total best fitness value, the best fitness value of the
+        respective step as course over the iterations. (Optionally: Plot the
+        average fitness. Problematic because of penalties) """
+
+        plt.plot(self.best_fit_course, label='Best costs')
+        plt.plot(self.total_best_fit_course, label='Total best costs')
+        if average_inclusive is True:
+            plt.plot(self.avrg_fit_course, label='Average costs')
+        plt.legend(loc='upper right')
+
+        plt.ylabel('Total costs')
+        plt.xlabel('Iteration number')
+
+        if self.save is True:
+            pass  # TODO: save to specific folder created for this optimization
+        else:
+            plt.show()

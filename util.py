@@ -34,7 +34,7 @@ class Individual:
     def reset(self):
         self.fitness = None
         # Did this individual lead to failed power flow calculation?
-        self.failure = None
+        self.failure = False
         # Valid solution? All constraints satisfied?
         self.valid = None
 
