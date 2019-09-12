@@ -37,13 +37,13 @@ Nachteile:
 
 
 def main():
-    net, _ = scenario2()
-    net_ref, _ = scenario2ref()
-    return net, net_ref
+    scenario2()
+    scenario2ref()
 
 
 def scenario1():
-    """ Test OPF compared to pandapower OPF-tutorial. """
+    """ GA-OPF on the grid from the simple pandapower-OPF tutorial. """
+    # https://github.com/e2nIEE/pandapower/blob/master/tutorials/opf_basic.ipynb
     variables = (('gen', 'p_mw', 0), ('gen', 'p_mw', 1))
     net = create_net1()
 
@@ -51,15 +51,22 @@ def scenario1():
                                 net=net, mutation_rate=0.001,
                                 obj_fct=obj_fct1,
                                 constraints='all')
-    ga.run(iter_max=20)
+    net_opt, best_costs = ga.run(iter_max=20)
+    print(f'Costs for GA-OPF: {best_costs}')
 
-    # Compare with pp-OPF
+    return net_opt, best_costs
+
+
+def scenario1ref():
+    """ pandapower-OPF as reference for scenario 1. """
     net = create_net1()
-    costeg = pp.create_poly_cost(net, 0, 'ext_grid', cp1_eur_per_mw=10)
-    costgen1 = pp.create_poly_cost(net, 0, 'gen', cp1_eur_per_mw=10)
-    costgen2 = pp.create_poly_cost(net, 1, 'gen', cp1_eur_per_mw=10)
+    pp.create_poly_cost(net, 0, 'ext_grid', cp1_eur_per_mw=10)
+    pp.create_poly_cost(net, 0, 'gen', cp1_eur_per_mw=10)
+    pp.create_poly_cost(net, 1, 'gen', cp1_eur_per_mw=10)
     pp.runopp(net)
-    print(net.res_cost)
+    print(f'Costs for pandapower-OPF: {net.res_cost}')
+
+    return net, net.res_cost
 
 
 def scenario2():
@@ -67,7 +74,6 @@ def scenario2():
     net = create_net2()
 
     # Degrees of freedom for optimization
-    # TODO: how to make easier? (if index == xxx: use all indexes?)
     variables = (('sgen', 'q_mvar', 0),
                  ('sgen', 'q_mvar', 1),
                  ('sgen', 'q_mvar', 2),
@@ -87,14 +93,14 @@ def scenario2():
                                 plot=True,
                                 termination='cmp_last')
 
-    net_opt, costs = ga.run(iter_max=15)
-    print(f'Costs of ga-OPF: {costs}')
+    net_opt, best_costs = ga.run(iter_max=15)
+    print(f'Costs of ga-OPF: {best_costs}')
 
-    return net_opt, costs
+    return net_opt, best_costs
 
 
 def scenario2ref():
-    # Comparison with pp-opf:
+    """ pandapower-OPF as reference for scenario 2. """
     net = create_net2()
     pp.create_poly_cost(net, 0, 'ext_grid', cp1_eur_per_mw=1)
     for idx in net.sgen.index:
@@ -102,17 +108,16 @@ def scenario2ref():
     for idx in net.load.index:
         pp.create_poly_cost(net, idx, 'load', cp1_eur_per_mw=-1)
     pp.runopp(net, verbose=False)
+
     from .obj_functs import min_p_loss
-    # Pandapower costs not working: loads are not considered!
-    costs = min_p_loss(net)
+    costs = min_p_loss(net)  # Pandapower costs not working: loads are not considered!?
     print(f'Costs of pandapower-OPF: {costs}')
+
     return net, costs
 
 
 def obj_fct1(net):
-    """ Re-create the pandapower tutorial from:
-    https://github.com/e2nIEE/pandapower/blob/master/tutorials/opf_basic.ipynb
-    """
+    """ Objective function from simple pp-OPF tutorial. """
     costs = 0
 
     costs += sum(net.res_ext_grid['p_mw']) * 10
@@ -122,6 +127,7 @@ def obj_fct1(net):
 
 
 def create_net1():
+    """ Create net from simple pandapower-OPF tutorial. """
     net = pp.create_empty_network()
 
     # create buses
@@ -144,15 +150,15 @@ def create_net1():
     pp.create_load(net, bus4, p_mw=10, controllable=False)
 
     # create generators
-    eg = pp.create_ext_grid(net, bus1, min_p_mw=-1000, max_p_mw=1000)
-    g0 = pp.create_gen(net, bus3, p_mw=80, min_p_mw=0, max_p_mw=80, vm_pu=1.01, controllable=True)
-    g1 = pp.create_gen(net, bus4, p_mw=100, min_p_mw=0, max_p_mw=100, vm_pu=1.01, controllable=True)
+    pp.create_ext_grid(net, bus1, min_p_mw=-1000, max_p_mw=1000)
+    pp.create_gen(net, bus3, p_mw=80, min_p_mw=0, max_p_mw=80, vm_pu=1.01, controllable=True)
+    pp.create_gen(net, bus4, p_mw=100, min_p_mw=0, max_p_mw=100, vm_pu=1.01, controllable=True)
 
     return net
 
 
 def create_net2():
-    """ Cigre MV: Net and constraints for optimale reactive power flow. """
+    """ Cigre MV: Net + constraints for optimal reactive power flow. """
     net = pn.create_cigre_network_mv(with_der='pv_wind')
 
     # Max and min reactive power feed-in
