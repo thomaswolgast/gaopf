@@ -29,12 +29,12 @@ def min_v2_deviations(net):
 
 
 def min_pp_costs(net):
-    """ Minimize total costs.
-    To do so, use cost function implemented within the pandapower network.
+    """ Minimize total costs as implemented in pandapower network.
     Useful if cost function is already implemented or for comparison with
-    pandapower-OPF. """
-    # TODO: Not equivalent to pandapower costs yet! why?
-    # TODO: piece-wise costs not working yet!
+    pandapower-OPF. Attention: Not equivalent to 'net.res_cost' after
+    pp-OPF, because internal cost calculation of pandapower buggy. """
+
+    # TODO: piece-wise costs not implemented yet!
     costs = 0
     for idx in net.poly_cost.index:
         element = net.poly_cost.element[idx]
