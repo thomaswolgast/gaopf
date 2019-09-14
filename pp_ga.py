@@ -19,7 +19,7 @@ from .penalty_fcts import penalty_fct
 class GeneticAlgorithm(genetic_operators.Mixin):
     def __init__(self,
                  pop_size: int,
-                 variables: tuple,
+                 variables: list,
                  net: object,
                  mutation_rate: float,  # TODO: Find good default!
                  obj_fct='obj_p_loss',
@@ -27,10 +27,52 @@ class GeneticAlgorithm(genetic_operators.Mixin):
                  selection: str='tournament',
                  crossover: str='single_point',
                  mutation: dict={'random_init': 1.0},
-                 termination: str='cmp_last',  # option for termination: 'cmp_last', 'cmp_avrg'
+                 termination: str='cmp_last',
                  plot: bool=False,
                  save: bool=False):
-        """ TODO: proper documentation! """
+        """
+        pop_size: Population size; number of parallel solutions (called 
+        individuals here).
+
+        variables: All degrees of freedom for optimization. A list of tuples 
+        like: (unit_type, actuator, index), e.g. ('sgen', 'p_mv', 1).
+
+        net: A pandapower net object with defined constraints.
+
+        mutation_rate: The probability a single variable gets altered 
+        randomly. Look into genetic algorithm literature for information.
+
+        obj_fct: A user- or pre-defined objective function to minimize. Use 
+        your own function here or use string of pre-defined function name. 
+        See "obj_functs.py" for pre-implemented functions like 'min_p_loss'.
+
+        constraints: A tuple of system constraints to consider. Options are:
+        ('voltage_band', 'line_load', 'trafo_load', 'trafo3w_load'). 
+        If constraints is set to 'all', all of the above are considered.  
+        (Constraints like max/min p/q/tap are always considerd and must be 
+        defined!)
+
+        selection: A string that defines the selection operator. Normally no
+        adjustment required! See "genetic_operators.py" for possible options.
+
+        crossover: Same as for selection operator.
+
+        mutation: Dictionary that defines the mutation operators to use and
+        their respective probabilities. See "genetic_operators.py".
+
+        termination: String that defines criterion for termination of the 
+        optimization. Possibilities are: 
+        'cmp_avrg': Compare best to average solution. Terminate if similar.
+        'cmp_last': Compare best solution to best solutions n steps before. 
+        Terminate if only marginal improvement.
+        For both, 10^-3 is the boundary for termination. 
+
+        plot: If True -> Course of best results gets plotted in the end. 
+        (Warning: stops running of the code! Set save=True to prevent that)
+
+        save: If True -> Save results and logger to newly created folder. 
+        Plot into that folder, too. (TODO: Not implemented yet)
+        """
         self.pop_size = pop_size
         self.vars = variables
         self.mutation_rate = mutation_rate
@@ -61,7 +103,7 @@ class GeneticAlgorithm(genetic_operators.Mixin):
         self.total_best_fit_course = []
         self.best_fit_course = []
         self.avrg_fit_course = []
-        self.iter = 0
+        
         self.plot = plot
         self.save = save
 
@@ -77,12 +119,14 @@ class GeneticAlgorithm(genetic_operators.Mixin):
                             Error: {unit_type}-{idx} is not '{status}'!"""
 
     def run(self, iter_max: int=None):
-        """ Run genetic algorithm until termination. """
+        """ Run genetic algorithm until termination. Return optimized 
+        pandapower network and the value of the respective objective fct. """
         if iter_max is not None:
             self.iter_max = iter_max
 
         self.init_pop()
 
+        self.iter = 0
         while True:
             print(f'Step {self.iter}')
             self.fit_fct()
@@ -151,6 +195,7 @@ class GeneticAlgorithm(genetic_operators.Mixin):
         if self.iter >= self.iter_max:
             return True
 
+        # TODO: make functions for everyone of these?!
         if self.termination_crit == 'cmp_last':
             iter_range = round(self.iter * 0.2) + 5  
             # TODO: Hardcoded! (Make it variable? User can define "early" or "late" termination) 
