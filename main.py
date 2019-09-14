@@ -86,14 +86,14 @@ def scenario2():
                  ('trafo', 'tap_pos', 0),
                  ('trafo', 'tap_pos', 1))
 
-    ga = pp_ga.GeneticAlgorithm(pop_size=150, variables=variables,
+    ga = pp_ga.GeneticAlgorithm(pop_size=100, variables=variables,
                                 net=net, mutation_rate=0.001,
                                 obj_fct='min_p_loss',
                                 constraints='all',
                                 plot=True,
                                 termination='cmp_last')
 
-    net_opt, best_costs = ga.run(iter_max=15)
+    net_opt, best_costs = ga.run(iter_max=30)
     print(f'Costs of ga-OPF: {best_costs}')
 
     return net_opt, best_costs

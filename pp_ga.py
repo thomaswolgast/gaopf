@@ -152,7 +152,8 @@ class GeneticAlgorithm(genetic_operators.Mixin):
             return True
 
         if self.termination_crit == 'cmp_last':
-            iter_range = 5  # TODO: Hardcoded! (Make it a variable? Or user-defined fct?)
+            iter_range = round(self.iter * 0.2) + 5  
+            # TODO: Hardcoded! (Make it variable? User can define "early" or "late" termination) 
             if self.iter > iter_range:
                 improvement = self.total_best_fit_course[-iter_range - 1] - self.best_fit_course[-1]
                 rel_improvement = improvement / self.total_best_fit_course[-iter_range - 1]
