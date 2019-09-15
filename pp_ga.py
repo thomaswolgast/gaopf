@@ -6,6 +6,8 @@ networks.
 """
 
 from copy import deepcopy
+import datetime
+import os
 import sys
 
 import matplotlib.pyplot as plt
@@ -107,6 +109,9 @@ class GeneticAlgorithm(genetic_operators.Mixin):
         self.plot = plot
         self.save = save
 
+        if save is True:
+            self.create_path()
+
     def assert_unit_state(self, status: str='controllable'):
         """ Assert that units to be optimized are usable beforehand by
         checking 'in_service' or 'controllable' of each actuator. If they
@@ -146,6 +151,8 @@ class GeneticAlgorithm(genetic_operators.Mixin):
         print(self.opt_net.sgen)
         print(self.opt_net.res_bus)
         print(self.opt_net.trafo)
+
+        self.save_net(best_net=self.opt_net)
 
         # Plot results
         if self.plot is True:
@@ -228,7 +235,7 @@ class GeneticAlgorithm(genetic_operators.Mixin):
         try:
             pp.runpp(net)
         except KeyboardInterrupt:
-            print('Optimization interrupted by user. ')
+            print('Optimization interrupted by user!')
             sys.exit()
         except:
             print('Power flow calculation failed!')
@@ -252,6 +259,32 @@ class GeneticAlgorithm(genetic_operators.Mixin):
         plt.xlabel('Iteration number')
 
         if self.save is True:
-            pass  # TODO: save to specific folder created for this optimization
+            format_type = 'png'
+            plt.savefig(f'{self.path}optimization_course.{format_type}',
+                        format=format_type,
+                        bbox_inches='tight')
         else:
             plt.show()
+
+    def create_path(self):
+        """ Create folder for data saving. The name of the folder is the 
+        current date and time. Attention: time in virtualbox and time in host
+        system are not always synchronous! """
+        t = datetime.datetime.now().replace(microsecond=0).isoformat()
+        self.path = f'ga_opf_pp/Results/{t}/'.replace(':', '.').replace('T', ' ')
+        os.makedirs(self.path)
+
+    def save_net(self, best_net, format_='pickle'):
+        """ Save pandapower network to pickle file. """
+        if self.save is True:
+            filename = 'best_net'
+            if format_ == 'pickle':
+                pp.to_pickle(best_net, self.path+filename+'.p')
+            elif format_ == 'json':
+                pp.to_json(best_net, self.path+filename+'.json')
+            else: 
+                print(f'File format "{format_}" not implemented yet!')
+
+
+
+

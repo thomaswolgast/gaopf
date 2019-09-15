@@ -91,6 +91,7 @@ def scenario2():
                                 obj_fct='min_p_loss',
                                 constraints='all',
                                 plot=True,
+                                save=True,
                                 termination='cmp_last')
 
     net_opt, best_costs = ga.run(iter_max=30)
