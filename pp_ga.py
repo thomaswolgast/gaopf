@@ -284,7 +284,3 @@ class GeneticAlgorithm(genetic_operators.Mixin):
                 pp.to_json(best_net, self.path+filename+'.json')
             else: 
                 print(f'File format "{format_}" not implemented yet!')
-
-
-
-
