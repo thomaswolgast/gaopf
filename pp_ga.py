@@ -126,8 +126,7 @@ class GeneticAlgorithm(genetic_operators.Mixin):
     def run(self, iter_max: int=None):
         """ Run genetic algorithm until termination. Return optimized 
         pandapower network and the value of the respective objective fct. """
-        if iter_max is not None:
-            self.iter_max = iter_max
+        self.iter_max = iter_max
 
         self.init_pop()
 
@@ -199,8 +198,9 @@ class GeneticAlgorithm(genetic_operators.Mixin):
 
     def termination(self):
         """ Terminate if max iteration number is reached. """
-        if self.iter >= self.iter_max:
-            return True
+        if self.iter_max:
+            if self.iter >= self.iter_max:
+                return True
 
         # TODO: make functions for everyone of these?!
         if self.termination_crit == 'cmp_last':
