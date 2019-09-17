@@ -117,6 +117,31 @@ def scenario2ref():
     return net, costs
 
 
+def scenario3():
+    """ Large multi voltage level power grid that contains all possible 
+    elements. If this work, everything should work!
+    https://pandapower.readthedocs.io/en/v2.1.0/networks/example.html """
+    net = create_net2()
+
+    variables = [('sgen', 'q_mvar', idx) for idx in net.sgen.index]
+    variables += [('gen', 'q_mvar', idx) for idx in net.gen.index]
+    variables += [('shunt', 'step', 0)]
+    variables += [('trafo', 'tap_pos', 1)]
+    variables += [('trafo3w', 'tap_pos', 0)]
+
+
+    ga = pp_ga.GeneticAlgorithm(pop_size=250, variables=variables,
+                                net=net, mutation_rate=0.001,
+                                obj_fct='min_p_loss',
+                                constraints='all',
+                                plot=True,
+                                termination='cmp_last')
+
+    net_opt, best_costs = ga.run(iter_max=40)
+    print(f'Costs of ga-OPF: {best_costs}')
+
+    return net_opt, best_costs
+
 def obj_fct1(net):
     """ Objective function from simple pp-OPF tutorial. """
     costs = 0
@@ -161,34 +186,7 @@ def create_net1():
 def create_net2():
     """ Cigre MV: Net + constraints for optimal reactive power flow. """
     net = pn.create_cigre_network_mv(with_der='pv_wind')
-
-    # Max and min reactive power feed-in
-    cos_phi = 0.95
-    max_q = np.array([p * (np.arctan(np.arccos(cos_phi))) for p in net.sgen.p_mw])
-    min_q = np.array([-p * (np.arctan(np.arccos(cos_phi)))
-                      for p in net.sgen.p_mw])
-    net.sgen['max_q_mvar'] = pd.Series(max_q, index=net.sgen.index)
-    net.sgen['min_q_mvar'] = pd.Series(min_q, index=net.sgen.index)
-
-    # Max and min active power feed-in (workaround! easier way?)
-    net.sgen['max_p_mw'] = pd.Series(
-        [p * 1.01 for p in net.sgen.p_mw], index=net.sgen.index)
-    net.sgen['min_p_mw'] = pd.Series(
-        [p * 0.99 for p in net.sgen.p_mw], index=net.sgen.index)
-
-    # Make sgens controllable
-    net.sgen['controllable'] = pd.Series(
-        [True for _ in net.sgen.index], index=net.sgen.index)
-
-    # Max and min active/reactive power feed-in of external grid
-    net.ext_grid['max_p_mw'] = pd.Series(
-        [1000000 for _ in net.ext_grid.index], index=net.ext_grid.index)
-    net.ext_grid['min_p_mw'] = pd.Series(
-        [-1000000 for _ in net.ext_grid.index], index=net.ext_grid.index)
-    net.ext_grid['max_q_mvar'] = pd.Series(
-        [1000000 for _ in net.ext_grid.index], index=net.ext_grid.index)
-    net.ext_grid['min_q_mvar'] = pd.Series(
-        [-1000000 for _ in net.ext_grid.index], index=net.ext_grid.index)
+    net = settings_opf(net)
 
     # Make trafo tap-changable with tap-range [-2, +2]
     net.trafo.tap_pos = pd.Series([0, 0], index=net.trafo.index)
@@ -203,8 +201,49 @@ def create_net2():
     net.trafo['controllable'] = pd.Series(
         [True for _ in net.trafo.index], index=net.trafo.index)
 
+    return net
+
+
+def create_net3():
+    """ 57 bus net with all kinds of elements. """
+    net = pn.example_multivoltage()
+    net = settings_opf(net)
+
+    return net
+
+
+def settings_opf(net, cos_phi=0.95, max_dU=0.05):
+    """ Make some general setting for reactive OPF calculation. """
+    
+    for type_ in ('gen', 'sgen'):
+        # Max and min reactive power feed-in of gens and sgens
+        max_q = np.array([p * (np.arctan(np.arccos(cos_phi))) for p in net[type_].p_mw])
+        min_q = np.array([-p * (np.arctan(np.arccos(cos_phi)))
+                          for p in net[type_].p_mw])
+        net[type_]['max_q_mvar'] = pd.Series(max_q, index=net[type_].index)
+        net[type_]['min_q_mvar'] = pd.Series(min_q, index=net[type_].index)
+
+        # Max and min active power feed-in (workaround! easier way?)
+        net[type_]['max_p_mw'] = pd.Series(
+            [p * 1.01 for p in net[type_].p_mw], index=net[type_].index)
+        net[type_]['min_p_mw'] = pd.Series(
+            [p * 0.99 for p in net[type_].p_mw], index=net[type_].index)
+
+        # Make controllable
+        net[type_]['controllable'] = pd.Series(
+            [True for _ in net[type_].index], index=net[type_].index)
+
+    # Max and min active/reactive power feed-in of external grid
+    net.ext_grid['max_p_mw'] = pd.Series(
+        [1000000 for _ in net.ext_grid.index], index=net.ext_grid.index)
+    net.ext_grid['min_p_mw'] = pd.Series(
+        [-1000000 for _ in net.ext_grid.index], index=net.ext_grid.index)
+    net.ext_grid['max_q_mvar'] = pd.Series(
+        [1000000 for _ in net.ext_grid.index], index=net.ext_grid.index)
+    net.ext_grid['min_q_mvar'] = pd.Series(
+        [-1000000 for _ in net.ext_grid.index], index=net.ext_grid.index)
+
     # Constraints: Voltage band
-    max_dU = 0.05
     net.bus['min_vm_pu'] = pd.Series(
         [1 - max_dU for _ in net.bus.index], index=net.bus.index)
     net.bus['max_vm_pu'] = pd.Series(
@@ -221,7 +260,6 @@ def create_net2():
         [max_loading for _ in net.trafo.index], index=net.trafo.index)
 
     return net
-
 
 if __name__ == '__main__':
     main()

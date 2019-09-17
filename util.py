@@ -19,15 +19,23 @@ class Individual:
         self.vars = []
         for unit_type, actuator, idx in vars_in:
             if actuator == 'p_mw' or actuator == 'q_mvar' or actuator == 'p_kw' or actuator == 'q_kvar':
+                # gens and sgens
                 var = LmtNumber(
                     nmbr_type='float',
                     min_boundary=net[unit_type][f'min_{actuator}'][idx],
                     max_boundary=net[unit_type][f'max_{actuator}'][idx])
             elif actuator == 'tap_pos':
+                # tap-changing transformers
                 var = LmtNumber(
                     nmbr_type='int',
                     min_boundary=net[unit_type]['tap_min'][idx],
                     max_boundary=net[unit_type]['tap_max'][idx])
+            elif actuator == 'step':
+                # shunts
+                var = LmtNumber(
+                    nmbr_type='int',
+                    min_boundary=0,
+                    max_boundary=net[unit_type]['max_step'][idx])
 
             self.vars.append(var)
 

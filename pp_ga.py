@@ -85,6 +85,9 @@ class GeneticAlgorithm(genetic_operators.Mixin):
         # original net does not get altered! -> deepcopy)
         self.net = deepcopy(net)
 
+        # TODO: add voltage constraints here and use them as constraints for gens!
+        # If no voltage constraints -> constraints = default
+
         self.assert_unit_state('controllable')
         self.assert_unit_state('in_service')
 
@@ -121,7 +124,7 @@ class GeneticAlgorithm(genetic_operators.Mixin):
                 print(f"'{status}' of {unit_type}_{idx} not defined. Assumed to be True!")
             else:
                 assert bool(self.net[unit_type][status][idx]) is True, f"""
-                            Error: {unit_type}-{idx} is not '{status}'!"""
+                Error: {unit_type}-{idx} is not '{status}'!"""
 
     def run(self, iter_max: int=None):
         """ Run genetic algorithm until termination. Return optimized 
@@ -233,7 +236,7 @@ class GeneticAlgorithm(genetic_operators.Mixin):
         # Update the power flow results by performing pf-calculation
         failure = False
         try:
-            pp.runpp(net)
+            pp.runpp(net, enforce_q_lims=True)
         except KeyboardInterrupt:
             print('Optimization interrupted by user!')
             sys.exit()
