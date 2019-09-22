@@ -41,19 +41,9 @@ def voltage_band(net):
 
     penalty = 0
     for idx in net.bus.index:
-        try:
-            u_max = net.bus.max_vm_pu[idx]
-        except AttributeError:
-            # Set u_max to default value
-            u_max = 1.1
-            print(f'Set v_max to default ({u_max}) for bus {idx}')
 
-        try:
-            u_min = net.bus.min_vm_pu[idx]
-        except AttributeError:
-            # Set u_min to default value
-            u_min = 0.9
-            print(f'Set v_min to default ({u_min}) for bus {idx}')
+        u_max = net.bus.max_vm_pu[idx]
+        u_min = net.bus.min_vm_pu[idx]
 
         if net.res_bus.vm_pu[idx] > u_max:
             penalty += (net.res_bus.vm_pu[idx] - u_max) * costs
@@ -83,13 +73,8 @@ def loading(net, costs, unit_type: str='trafo'):
     violation. """
     penalty = 0
     for idx in net[unit_type].index:
-        try:
-            max_load = net[unit_type].max_loading_percent[idx]
-        except AttributeError:
-            # Set u_max to default value
-            max_load = 100
-
+        max_load = net[unit_type].max_loading_percent[idx]
         if net[f'res_{unit_type}'].loading_percent[idx] > max_load:
-            (net[f'res_{unit_type}'].loading_percent[idx] - max_load) * costs
+            penalty += (net[f'res_{unit_type}'].loading_percent[idx] - max_load) * costs
 
     return penalty

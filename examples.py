@@ -10,47 +10,45 @@ import pandapower as pp
 import pandapower.networks as pn
 
 from . import pp_ga
+from .obj_functs import min_p_loss
 
 """
-TODO:
-- Zwei arrays für int und float, um die operatoren für beides zu optimieren (oder ints durch floats ersetzen und immer runden?)
-und zu differenzieren?
-- Zeitmessung integrieren, um Verbesserungspotenzial zu finden
-- Unterschiede zu pandapower-OPF herausarbeiten -> weiterentwickeln sinnvoll?
-"""
-
-"""
-Vorteile gegenüber PP-OPF:
-- P und Q getrennt optimierbar
-- beliebige Zielfunktionen
-- Trafos mit optimieren
-- Switches mit optimieren
-- Bessere Chancen auf Konvergenz (mit potenzieller constraint verletzung)
-- Constraints können (bzw. müssen) als soft-constraints berücksichtigt werden
--> macht optimale Einhaltung der RB als Zielfunktion möglich (min sum(U^2-1))
+Advantages compared to pp-OPF:
+- P and Q can be optimized separately
+- arbitrary objective functions possible
+- Tap-changer of transformer + switches + shunts can be optimized
+- Constraints can (or rather must) be soft-constraints
+-> optimal consideration of constraints as part of objective fct possible 
+(e.g. min(sum((u-1)^2)))
 
 Nachteile:
-- Langsamer
-- Mehr Parameter einzustellen (Populationsgröße, Iterationszahl etc.)
--> mehr Programmieraufwand bei Anwendung
+- Far slower than pp-OPF
+- More parameters (population size, max iterations etc.)
+-> more programming effort
 """
 
 
 def main():
-    scenario2()
+    scenario1(save=True)
+    scenario1ref()
+    scenario2(save=True)
     scenario2ref()
+    scenario3(save=True)
+    scenario3ref()
 
 
-def scenario1():
+def scenario1(save=False):
     """ GA-OPF on the grid from the simple pandapower-OPF tutorial. """
     # https://github.com/e2nIEE/pandapower/blob/master/tutorials/opf_basic.ipynb
-    variables = (('gen', 'p_mw', 0), ('gen', 'p_mw', 1))
     net = create_net1()
+    variables = (('gen', 'p_mw', 0), ('gen', 'p_mw', 1),
+                 ('gen', 'vm_pu', 0), ('gen', 'vm_pu', 1))
 
-    ga = pp_ga.GeneticAlgorithm(pop_size=50, variables=variables,
+    ga = pp_ga.GeneticAlgorithm(pop_size=100, variables=variables,
                                 net=net, mutation_rate=0.001,
                                 obj_fct=obj_fct1,
-                                constraints='all')
+                                plot=True,
+                                save=save)
     net_opt, best_costs = ga.run(iter_max=20)
     print(f'Costs for GA-OPF: {best_costs}')
 
@@ -69,8 +67,9 @@ def scenario1ref():
     return net, net.res_cost
 
 
-def scenario2():
-    """ Test OPF with larger network (cigre mv with pv and wind). """
+def scenario2(save=False):
+    """ Test OPF with larger network (cigre mv with pv and wind). 
+    Demonstrates the usage of tap-changable transformer. """
     net = create_net2()
 
     # Degrees of freedom for optimization
@@ -86,13 +85,11 @@ def scenario2():
                  ('trafo', 'tap_pos', 0),
                  ('trafo', 'tap_pos', 1))
 
-    ga = pp_ga.GeneticAlgorithm(pop_size=100, variables=variables,
+    ga = pp_ga.GeneticAlgorithm(pop_size=150, variables=variables,
                                 net=net, mutation_rate=0.001,
                                 obj_fct='min_p_loss',
-                                constraints='all',
                                 plot=True,
-                                save=True,
-                                termination='cmp_last')
+                                save=save)
 
     net_opt, best_costs = ga.run(iter_max=30)
     print(f'Costs of ga-OPF: {best_costs}')
@@ -110,37 +107,57 @@ def scenario2ref():
         pp.create_poly_cost(net, idx, 'load', cp1_eur_per_mw=-1)
     pp.runopp(net, verbose=False)
 
-    from .obj_functs import min_p_loss
     costs = min_p_loss(net)  # Pandapower costs not working: loads are not considered!?
     print(f'Costs of pandapower-OPF: {costs}')
 
     return net, costs
 
 
-def scenario3():
+def scenario3(save=False):
     """ Large multi voltage level power grid that contains all possible 
-    elements. If this work, everything should work!
+    elements. If this works, everything should work!
     https://pandapower.readthedocs.io/en/v2.1.0/networks/example.html """
-    net = create_net2()
+    net = create_net3()
 
     variables = [('sgen', 'q_mvar', idx) for idx in net.sgen.index]
-    variables += [('gen', 'q_mvar', idx) for idx in net.gen.index]
+    variables += [('gen', 'vm_pu', idx) for idx in net.gen.index]
     variables += [('shunt', 'step', 0)]
     variables += [('trafo', 'tap_pos', 1)]
     variables += [('trafo3w', 'tap_pos', 0)]
 
-
-    ga = pp_ga.GeneticAlgorithm(pop_size=250, variables=variables,
+    ga = pp_ga.GeneticAlgorithm(pop_size=200, variables=tuple(variables),
                                 net=net, mutation_rate=0.001,
                                 obj_fct='min_p_loss',
                                 constraints='all',
                                 plot=True,
-                                termination='cmp_last')
+                                termination='cmp_last',
+                                save=save)
 
-    net_opt, best_costs = ga.run(iter_max=40)
+    net_opt, best_costs = ga.run(iter_max=30)
     print(f'Costs of ga-OPF: {best_costs}')
 
     return net_opt, best_costs
+
+
+def scenario3ref():
+    net = create_net3()
+
+    for actuator in ('ext_grid', 'gen', 'sgen'):
+        for idx in net[actuator].index:
+            pp.create_poly_cost(net, idx, actuator, cp1_eur_per_mw=1)
+    for idx in net.load.index:
+        pp.create_poly_cost(net, idx, 'load', cp1_eur_per_mw=-1)
+
+    try:
+        pp.runopp(net)
+        costs = min_p_loss(net)  # Pandapower costs not working: loads are not considered!?
+        print(f'Costs of pandapower-OPF: {costs}')
+        return net, costs
+    except pp.optimal_powerflow.OPFNotConverged:
+        print('Pandapower-OPF did not converge for scenario 3! (Because tap-changing not possible)')
+        return None, None
+
+
 
 def obj_fct1(net):
     """ Objective function from simple pp-OPF tutorial. """
@@ -209,6 +226,15 @@ def create_net3():
     net = pn.example_multivoltage()
     net = settings_opf(net)
 
+    # Allow more loading (otherwise no valid solution)
+    max_loading = 120
+    net.line['max_loading_percent'] = pd.Series(
+        [max_loading for _ in net.line.index], index=net.line.index)
+
+    max_loading = 110
+    net.trafo['max_loading_percent'] = pd.Series(
+        [max_loading for _ in net.trafo.index], index=net.trafo.index)
+
     return net
 
 
@@ -222,6 +248,8 @@ def settings_opf(net, cos_phi=0.95, max_dU=0.05):
                           for p in net[type_].p_mw])
         net[type_]['max_q_mvar'] = pd.Series(max_q, index=net[type_].index)
         net[type_]['min_q_mvar'] = pd.Series(min_q, index=net[type_].index)
+        if 'q_mvar' not in net[type_]:
+            net[type_]['q_mvar'] = pd.Series(0, index=net[type_].index)
 
         # Max and min active power feed-in (workaround! easier way?)
         net[type_]['max_p_mw'] = pd.Series(

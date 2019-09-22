@@ -18,24 +18,33 @@ class Individual:
     def random_init(self, vars_in, net):
         self.vars = []
         for unit_type, actuator, idx in vars_in:
-            if actuator == 'p_mw' or actuator == 'q_mvar' or actuator == 'p_kw' or actuator == 'q_kvar':
-                # gens and sgens
+            if unit_type == 'gen' and actuator == 'vm_pu':
+                # AVR regulation
+                var = LmtNumber(
+                    nmbr_type='float',
+                    min_boundary=net.bus.min_vm_pu[idx],
+                    max_boundary=net.bus.max_vm_pu[idx])  
+            elif unit_type == 'gen' or unit_type == 'sgen':
+                # Active or reactive power regulation
                 var = LmtNumber(
                     nmbr_type='float',
                     min_boundary=net[unit_type][f'min_{actuator}'][idx],
-                    max_boundary=net[unit_type][f'max_{actuator}'][idx])
+                    max_boundary=net[unit_type][f'max_{actuator}'][idx])                 
             elif actuator == 'tap_pos':
-                # tap-changing transformers
+                # Tap-changing transformer regulation
                 var = LmtNumber(
                     nmbr_type='int',
                     min_boundary=net[unit_type]['tap_min'][idx],
                     max_boundary=net[unit_type]['tap_max'][idx])
             elif actuator == 'step':
-                # shunts
+                # Shunt regulation
                 var = LmtNumber(
                     nmbr_type='int',
                     min_boundary=0,
                     max_boundary=net[unit_type]['max_step'][idx])
+            else: 
+                raise ValueError(f"""
+                    The combination {unit_type}, {actuator}, {idx} is not possible""")
 
             self.vars.append(var)
 

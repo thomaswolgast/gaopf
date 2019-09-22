@@ -7,10 +7,12 @@ networks.
 
 from copy import deepcopy
 import datetime
+import json
 import os
 import sys
 
 import matplotlib.pyplot as plt
+import pandas as pd
 import pandapower as pp
 
 from . import genetic_operators
@@ -73,8 +75,10 @@ class GeneticAlgorithm(genetic_operators.Mixin):
         (Warning: stops running of the code! Set save=True to prevent that)
 
         save: If True -> Save results and logger to newly created folder. 
-        Plot into that folder, too. (TODO: Not implemented yet)
+        Plot into that folder, too.
+
         """
+
         self.pop_size = pop_size
         self.vars = variables
         self.mutation_rate = mutation_rate
@@ -85,11 +89,9 @@ class GeneticAlgorithm(genetic_operators.Mixin):
         # original net does not get altered! -> deepcopy)
         self.net = deepcopy(net)
 
-        # TODO: add voltage constraints here and use them as constraints for gens!
-        # If no voltage constraints -> constraints = default
-
         self.assert_unit_state('controllable')
         self.assert_unit_state('in_service')
+        self.set_defaults()
 
         # Choose objective function (attention: all objective
         # functions must be written as minimization!)
@@ -126,6 +128,32 @@ class GeneticAlgorithm(genetic_operators.Mixin):
                 assert bool(self.net[unit_type][status][idx]) is True, f"""
                 Error: {unit_type}-{idx} is not '{status}'!"""
 
+    def set_defaults(self):
+        """ If some boundaries are not given, set them to default value. """
+        # TODO: Do only, if voltage band is constraint
+        if 'min_vm_pu' not in self.net.bus:
+            u_min = 0.9
+            self.net.bus['min_vm_pu'] = pd.Series(
+                [u_min for _ in self.net.bus.index], index=self.net.bus.index)
+            print(f'Set "min_vm_pu" to default ({u_min}) for all buses')
+
+        if 'max_vm_pu' not in self.net.bus:
+            u_max = 1.1
+            self.net.bus['max_vm_pu'] = pd.Series(
+                [u_max for _ in self.net.bus.index], index=self.net.bus.index)
+            print(f'Set "max_vm_pu" to default ({u_max}) for all buses')
+        
+        # TODO: Do only, if loading is constraint
+        for unit in ('trafo', 'trafo3w', 'line'):
+            if len(self.net[unit].index) == 0:
+                continue
+            if 'max_loading_percent' not in self.net[unit]:
+                max_loading = 100
+                self.net[unit]['max_loading_percent'] = pd.Series(
+                    [max_loading for _ in self.net[unit].index],
+                    index=self.net[unit].index)
+                print(f'Set "max_loading_percent" to default ({max_loading}) for all "{unit}"')
+
     def run(self, iter_max: int=None):
         """ Run genetic algorithm until termination. Return optimized 
         pandapower network and the value of the respective objective fct. """
@@ -146,14 +174,13 @@ class GeneticAlgorithm(genetic_operators.Mixin):
 
             self.iter += 1
 
+        if self.best_ind.valid is False:
+            # TODO: proper logging instead!
+            # Or raise error here like pandapower does?
+            print(f'Attention: Solution does not fulfill all constraints!')
+
         self.opt_net, _ = self.update_net(self.net, self.best_ind)
-
-        # Delete! -> proper logging!
-        print('Resulting costs: ', self.best_ind.fitness)
-        print(self.opt_net.sgen)
-        print(self.opt_net.res_bus)
-        print(self.opt_net.trafo)
-
+        self.create_result()
         self.save_net(best_net=self.opt_net)
 
         # Plot results
@@ -191,7 +218,7 @@ class GeneticAlgorithm(genetic_operators.Mixin):
         # Evaluation of fitness values
         best_ind = min(self.pop, key=lambda ind: ind.fitness)
         self.best_fit_course.append(best_ind.fitness)
-        if (best_ind.fitness < self.best_ind.fitness) and best_ind.valid:
+        if (best_ind.fitness < self.best_ind.fitness):
             self.best_ind = best_ind
         self.total_best_fit_course.append(self.best_ind.fitness)
 
@@ -210,7 +237,7 @@ class GeneticAlgorithm(genetic_operators.Mixin):
             iter_range = round(self.iter * 0.2) + 5  
             # TODO: Hardcoded! (Make it variable? User can define "early" or "late" termination) 
             if self.iter > iter_range:
-                improvement = self.total_best_fit_course[-iter_range - 1] - self.best_fit_course[-1]
+                improvement = self.total_best_fit_course[-iter_range - 1] - self.total_best_fit_course[-1]
                 rel_improvement = improvement / self.total_best_fit_course[-iter_range - 1]
                 min_improvement = 10**-3  # TODO: Hardcoded!
                 print(f'Relative improvement in last {iter_range} steps: {rel_improvement}')
@@ -266,6 +293,7 @@ class GeneticAlgorithm(genetic_operators.Mixin):
             plt.savefig(f'{self.path}optimization_course.{format_type}',
                         format=format_type,
                         bbox_inches='tight')
+            plt.close()
         else:
             plt.show()
 
@@ -287,3 +315,14 @@ class GeneticAlgorithm(genetic_operators.Mixin):
                 pp.to_json(best_net, self.path+filename+'.json')
             else: 
                 print(f'File format "{format_}" not implemented yet!')
+
+    def create_result(self):
+        """ Create tuple of the variables and what best values were found for 
+        them. """
+        self.result = tuple(
+            [a, b, c, float(d.value)]
+            for (a, b, c), d in zip(self.vars, self.best_ind))
+
+        if self.save:
+            with open(f'{self.path}results.json', 'w') as file:
+                json.dump(self.result, file)
