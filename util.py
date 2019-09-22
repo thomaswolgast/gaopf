@@ -108,7 +108,7 @@ class LmtNumber:
         self._value = max(
             min(self.max_boundary, self._value), self.min_boundary)
 
-    # TODO: Make subclassed instead of type-checking?!
+    # TODO: Make subclasses instead of type-checking?!
     def random_init(self):
         """ Init value with a random number between the boundaries """
         if self.type == 'float':
@@ -117,17 +117,17 @@ class LmtNumber:
             self.value = random.randint(self.min_boundary, self.max_boundary)
 
     def increase(self):
-        """ Increase value slightly. """
+        """ Increase value slightly and randomly. """
         if self.type == 'float':
-            # Increase by random value between 0% and 100%
-            self.value += random.random() * self.range
+            # Increase by random value between 0% and 10%
+            self.value += random.random() * self.range / 10
         elif self.type == 'int':
             self.value += 1
 
     def decrease(self):
-        """ Increase value slightly. """
+        """ Increase value slightly and randomly. """
         if self.type == 'float':
-            # Decrease by random value between 0% and 100%
-            self.value -= random.random() * self.range
+            # Decrease by random value between 0% and 10%
+            self.value -= random.random() * self.range / 10
         elif self.type == 'int':
             self.value -= 1
