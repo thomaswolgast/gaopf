@@ -5,6 +5,8 @@
 
 import random
 
+import numpy as np
+
 
 class Individual:
     def __init__(self, vars_in: tuple, net: object, set_vars: tuple=None):
@@ -20,31 +22,30 @@ class Individual:
         for unit_type, actuator, idx in vars_in:
             if unit_type == 'gen' and actuator == 'vm_pu':
                 # AVR regulation
-                var = LmtNumber(
-                    nmbr_type='float',
+                var = LmtFloat(
                     min_boundary=net.bus.min_vm_pu[idx],
-                    max_boundary=net.bus.max_vm_pu[idx])  
+                    max_boundary=net.bus.max_vm_pu[idx],
+                    distribution='normal')  
             elif unit_type == 'gen' or unit_type == 'sgen':
                 # Active or reactive power regulation
-                var = LmtNumber(
-                    nmbr_type='float',
+                var = LmtFloat(
                     min_boundary=net[unit_type][f'min_{actuator}'][idx],
                     max_boundary=net[unit_type][f'max_{actuator}'][idx])                 
             elif actuator == 'tap_pos':
                 # Tap-changing transformer regulation
-                var = LmtNumber(
-                    nmbr_type='int',
+                var = LmtInt(
                     min_boundary=net[unit_type]['tap_min'][idx],
-                    max_boundary=net[unit_type]['tap_max'][idx])
+                    max_boundary=net[unit_type]['tap_max'][idx],
+                    distribution='normal')
             elif actuator == 'step':
                 # Shunt regulation
-                var = LmtNumber(
-                    nmbr_type='int',
+                var = LmtInt(
                     min_boundary=0,
                     max_boundary=net[unit_type]['max_step'][idx])
             else: 
                 raise ValueError(f"""
-                    The combination {unit_type}, {actuator}, {idx} is not possible""")
+                    The combination {unit_type}, {actuator}, {idx} is not possible
+                    (Maybe not implemented yet)""")
 
             self.vars.append(var)
 
@@ -73,16 +74,13 @@ class Individual:
 
 class LmtNumber:
     """ A number that is restricted to a given range of values. """
-
-    def __init__(self, nmbr_type: str, min_boundary, max_boundary,
-                 set_value=None):
-        assert nmbr_type in ('float', 'int')
-        self.type = nmbr_type
-
+    def __init__(self, min_boundary, max_boundary,
+                 set_value=None, distribution='equally'):
         assert max_boundary > min_boundary
         self.min_boundary = min_boundary
         self.max_boundary = max_boundary
         self.range = self.max_boundary - self.min_boundary
+        self.distribution = distribution
 
         if set_value is not None:
             self.value = set_value
@@ -92,6 +90,8 @@ class LmtNumber:
     def __repr__(self):
         return str(self.value)
 
+
+class LmtInt(LmtNumber):
     @property
     def value(self):
         return self._value
@@ -99,35 +99,44 @@ class LmtNumber:
     @value.setter
     def value(self, set_value):
         # Make sure integer remains integer (round randomly)
-        if self.type == 'int':
-            self._value = round(set_value + random.random() / 2)
-        else:
-            self._value = set_value
+        self._value = round(set_value + random.random() / 2)
 
         # Make sure 'value' stays always within boundaries.
         self._value = max(
             min(self.max_boundary, self._value), self.min_boundary)
 
-    # TODO: Make subclasses instead of type-checking?!
     def random_init(self):
-        """ Init value with a random number between the boundaries """
-        if self.type == 'float':
-            self.value = random.random() * self.range + self.min_boundary
-        elif self.type == 'int':
+        if self.distribution == 'equally':
             self.value = random.randint(self.min_boundary, self.max_boundary)
-
+        elif self.distribution == 'normal':
+            self.value = round(np.random.normal(0, 0.5) * self.range 
+                               + self.min_boundary)
     def increase(self):
-        """ Increase value slightly and randomly. """
-        if self.type == 'float':
-            # Increase by random value between 0% and 10%
-            self.value += random.random() * self.range / 10
-        elif self.type == 'int':
-            self.value += 1
+        self.value += 1
 
     def decrease(self):
-        """ Increase value slightly and randomly. """
-        if self.type == 'float':
-            # Decrease by random value between 0% and 10%
-            self.value -= random.random() * self.range / 10
-        elif self.type == 'int':
-            self.value -= 1
+        self.value -= 1
+
+
+class LmtFloat(LmtNumber):
+    @property
+    def value(self):
+        return self._value
+
+    @value.setter
+    def value(self, set_value):
+        # Make sure 'value' stays always within boundaries.
+        self._value = max(
+            min(self.max_boundary, set_value), self.min_boundary)
+
+    def random_init(self):
+        if self.distribution == 'equally':
+            self.value = random.random() * self.range + self.min_boundary
+        elif self.distribution == 'normal':
+            self.value = np.random.normal(0, 0.5) * self.range + self.min_boundary
+
+    def increase(self):
+        self.value += random.random() * self.range / 10
+
+    def decrease(self):
+        self.value -= random.random() * self.range / 10
