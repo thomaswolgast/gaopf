@@ -4,6 +4,8 @@ Test the genetic algorithm for pandapower
 
 """
 
+import time
+
 import numpy as np
 import pandas as pd
 import pandapower as pp
@@ -29,12 +31,18 @@ Nachteile:
 
 
 def main():
-    scenario1(save=True)
-    scenario1ref()
-    scenario2(save=True)
-    scenario2ref()
-    scenario3(save=True)
-    scenario3ref()
+    # scenario1(save=True)
+    # scenario1ref()
+    # scenario2(save=True)
+    # scenario2ref()
+    t1 = time.time()
+    scenario3(save=True, multiproc=True)
+    t2 = time.time()
+    print(f'With multiproc: {t2-t1} seconds')
+    scenario3(save=True, multiproc=False)
+    t3 = time.time()
+    print(f'Without multiproc: {t3-t2} seconds')
+    # scenario3ref()
 
 
 def scenario1(save=False):
@@ -113,7 +121,7 @@ def scenario2ref():
     return net, costs
 
 
-def scenario3(save=False):
+def scenario3(save=False, multiproc=False):
     """ Large multi voltage level power grid that contains all possible 
     elements. If this works, everything should work!
     https://pandapower.readthedocs.io/en/v2.1.0/networks/example.html """
@@ -125,13 +133,14 @@ def scenario3(save=False):
     variables += [('trafo', 'tap_pos', 1)]
     variables += [('trafo3w', 'tap_pos', 0)]
 
-    ga = pp_ga.GeneticAlgorithm(pop_size=200, variables=tuple(variables),
+    ga = pp_ga.GeneticAlgorithm(pop_size=400, variables=tuple(variables),
                                 net=net, mutation_rate=0.001,
                                 obj_fct='min_p_loss',
                                 constraints='all',
                                 plot=True,
                                 termination='cmp_last',
-                                save=save)
+                                save=save,
+                                multiproc=multiproc)
 
     net_opt, best_costs = ga.run(iter_max=30)
     print(f'Costs of ga-OPF: {best_costs}')

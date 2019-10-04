@@ -6,6 +6,7 @@
 import random
 
 import numpy as np
+import pandapower as pp
 
 
 class Individual:
@@ -109,8 +110,9 @@ class LmtInt(LmtNumber):
         if self.distribution == 'equally':
             self.value = random.randint(self.min_boundary, self.max_boundary)
         elif self.distribution == 'normal':
-            self.value = round(np.random.normal(0, 0.5) * self.range 
-                               + self.min_boundary)
+            self.value = round(np.random.normal(
+                loc=(self.max_boundary-self.min_boundary)/2, 
+                scale=0.125 * self.range))
     def increase(self):
         self.value += 1
 
@@ -133,10 +135,35 @@ class LmtFloat(LmtNumber):
         if self.distribution == 'equally':
             self.value = random.random() * self.range + self.min_boundary
         elif self.distribution == 'normal':
-            self.value = np.random.normal(0, 0.5) * self.range + self.min_boundary
+            # Useful for vm_pu of voltage regulated generators
+            self.value = np.random.normal(loc=1, scale=(0.125*self.range))
+            # 95% of values in the range [0.95 pu, 1.05 pu] for 10% boundary
 
     def increase(self):
         self.value += random.random() * self.range / 10
 
     def decrease(self):
         self.value -= random.random() * self.range / 10
+
+
+def update_net(net, ind, variables):
+    """ Update a given pandapower network to the state of a single
+    individual and perform power flow calculation. """
+
+    # Update the actuators to be optimized
+    for (unit_type, actuator, idx), nmbr in zip(variables, ind):
+        net[unit_type][actuator][idx] = nmbr.value
+
+    # Update the power flow results by performing pf-calculation
+    failure = False
+    try:
+        pp.runpp(net, enforce_q_lims=True)
+    except KeyboardInterrupt:
+        print('Optimization interrupted by user!')
+        sys.exit()
+    except:
+        print('Power flow calculation failed!')
+        # TODO: Include unit test to make sure this works!
+        failure = True
+
+    return net, failure

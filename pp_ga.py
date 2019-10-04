@@ -6,18 +6,22 @@ networks.
 """
 
 from copy import deepcopy
+import concurrent.futures as cf
 import datetime
 import json
+import multiprocessing
 import os
 import sys
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import pandapower as pp
 
 from . import genetic_operators
-from .util import Individual
+from .util import Individual, update_net
 from .penalty_fcts import penalty_fct
+from .multicore import multi_fit_fct
 
 
 class GeneticAlgorithm(genetic_operators.Mixin):
@@ -33,7 +37,8 @@ class GeneticAlgorithm(genetic_operators.Mixin):
                  mutation: dict={'random_init': 1.0},
                  termination: str='cmp_last',
                  plot: bool=False,
-                 save: bool=False):
+                 save: bool=False,
+                 multiproc: bool=True):
         """
         pop_size: Population size; number of parallel solutions (called 
         individuals here).
@@ -88,6 +93,17 @@ class GeneticAlgorithm(genetic_operators.Mixin):
         # Pandapower network which state shall be optimized (Make sure that
         # original net does not get altered! -> deepcopy)
         self.net = deepcopy(net)
+
+        # Multicore-adjustments
+        if multiproc:
+            # Multiprocessing of multiple cores
+            self.net_filename = 'temporary_net.json'
+            pp.to_json(net, filename=self.net_filename)
+            self.fit_fct = self.fit_fct_concurrent
+            self.n_cpu = multiprocessing.cpu_count()
+        else:
+            # Single-core
+            self.fit_fct = self.fit_fct_normal
 
         self.assert_unit_state('controllable')
         self.assert_unit_state('in_service')
@@ -179,7 +195,7 @@ class GeneticAlgorithm(genetic_operators.Mixin):
             # Or raise error here like pandapower does?
             print(f'Attention: Solution does not fulfill all constraints!')
 
-        self.opt_net, _ = self.update_net(self.net, self.best_ind)
+        self.opt_net, _ = update_net(self.net, self.best_ind, self.vars)
         self.create_result()
         self.save_net(best_net=self.opt_net)
 
@@ -196,11 +212,11 @@ class GeneticAlgorithm(genetic_operators.Mixin):
         self.best_ind = self.pop[0]
         self.best_ind.fitness = 1e9
 
-    def fit_fct(self):
+    def fit_fct_normal(self):
         """ Calculate fitness for each individual, including penalties for
         constraint violations which gets added to the objective function. """
         for ind in self.pop:
-            net, ind.failure = self.update_net(self.net, ind)
+            net, ind.failure = update_net(self.net, ind, self.vars)
 
             # Check for failed power flow calculation
             if ind.failure is True:
@@ -212,6 +228,34 @@ class GeneticAlgorithm(genetic_operators.Mixin):
             # Assign fitness value to each individual
             ind.fitness = self.obj_fct(net=net) + ind.penalty
 
+        self.fit_fct_after()
+
+    def fit_fct_concurrent(self):
+        """ Fitness function for multiple cores. """
+        # sub_pops = np.array_split(self.pop, self.n_cpu)
+        sub_pops = []
+        for n in range(self.n_cpu-1):
+            sub_pops.append(
+                self.pop[n*round(self.pop_size/self.n_cpu):
+                         (n+1)*round(self.pop_size/self.n_cpu)])
+        sub_pops.append(self.pop[(n+1)*round(self.pop_size/self.n_cpu)::])
+
+        self.pop = []
+        with cf.ProcessPoolExecutor() as executor:
+            results = []
+            for n in range(self.n_cpu):
+                args = (self.net, self.vars, tuple(sub_pops[n]), 
+                        penalty_fct, self.constraints, self.obj_fct)
+                results.append(executor.submit(multi_fit_fct, *args))
+
+            # Unite the population again
+            for sup_pop in cf.as_completed(results):
+                self.pop += sup_pop.result()
+
+        self.fit_fct_after()
+
+    def fit_fct_after(self):
+        """ Postprocessing of fitness evaluation. """
         # Delete individuals with failed power flow (not evaluatable)
         self.pop = tuple(filter(lambda ind: not ind.failure, self.pop))
 
@@ -251,28 +295,6 @@ class GeneticAlgorithm(genetic_operators.Mixin):
             print(f'Relative difference to average: {rel_diff_to_avrg}')
             if rel_diff_to_avrg < min_difference:
                 return True
-
-    def update_net(self, net, ind):
-        """ Update a given pandapower network to the state of a single
-        individual and perform power flow calculation. """
-
-        # Update the actuators to be optimized
-        for (unit_type, actuator, idx), nmbr in zip(self.vars, ind):
-            net[unit_type][actuator][idx] = nmbr.value
-
-        # Update the power flow results by performing pf-calculation
-        failure = False
-        try:
-            pp.runpp(net, enforce_q_lims=True)
-        except KeyboardInterrupt:
-            print('Optimization interrupted by user!')
-            sys.exit()
-        except:
-            print('Power flow calculation failed!')
-            # TODO: Include unit test to make sure this works!
-            failure = True
-
-        return net, failure
 
     def plot_fit_courses(self, average_inclusive=False):
         """ Plot the total best fitness value, the best fitness value of the
