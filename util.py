@@ -25,12 +25,12 @@ class Individual:
                 var = LmtFloat(
                     min_boundary=net.bus.min_vm_pu[idx],
                     max_boundary=net.bus.max_vm_pu[idx],
-                    distribution='normal')  
-            elif unit_type == 'gen' or unit_type == 'sgen':
+                    distribution='normal')
+            elif unit_type in ('gen', 'sgen', 'load'):
                 # Active or reactive power regulation
                 var = LmtFloat(
                     min_boundary=net[unit_type][f'min_{actuator}'][idx],
-                    max_boundary=net[unit_type][f'max_{actuator}'][idx])                 
+                    max_boundary=net[unit_type][f'max_{actuator}'][idx])
             elif actuator == 'tap_pos':
                 # Tap-changing transformer regulation
                 var = LmtInt(
@@ -42,7 +42,7 @@ class Individual:
                 var = LmtInt(
                     min_boundary=0,
                     max_boundary=net[unit_type]['max_step'][idx])
-            else: 
+            else:
                 raise ValueError(f"""
                     The combination {unit_type}, {actuator}, {idx} is not possible
                     (Maybe not implemented yet)""")
@@ -109,7 +109,7 @@ class LmtInt(LmtNumber):
         if self.distribution == 'equally':
             self.value = random.randint(self.min_boundary, self.max_boundary)
         elif self.distribution == 'normal':
-            self.value = round(np.random.normal(0, 0.5) * self.range 
+            self.value = round(np.random.normal(0, 0.5) * self.range
                                + self.min_boundary)
     def increase(self):
         self.value += 1
