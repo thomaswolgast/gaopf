@@ -35,25 +35,25 @@ class GeneticAlgorithm(genetic_operators.Mixin):
                  plot: bool=False,
                  save: bool=False):
         """
-        pop_size: Population size; number of parallel solutions (called 
+        pop_size: Population size; number of parallel solutions (called
         individuals here).
 
-        variables: All degrees of freedom for optimization. A list of tuples 
+        variables: All degrees of freedom for optimization. A list of tuples
         like: (unit_type, actuator, index), e.g. ('sgen', 'p_mv', 1).
 
         net: A pandapower net object with defined constraints.
 
-        mutation_rate: The probability a single variable gets altered 
+        mutation_rate: The probability a single variable gets altered
         randomly. Look into genetic algorithm literature for information.
 
-        obj_fct: A user- or pre-defined objective function to minimize. Use 
-        your own function here or use string of pre-defined function name. 
+        obj_fct: A user- or pre-defined objective function to minimize. Use
+        your own function here or use string of pre-defined function name.
         See "obj_functs.py" for pre-implemented functions like 'min_p_loss'.
 
         constraints: A tuple of system constraints to consider. Options are:
-        ('voltage_band', 'line_load', 'trafo_load', 'trafo3w_load'). 
-        If constraints is set to 'all', all of the above are considered.  
-        (Constraints like max/min p/q/tap are always considerd and must be 
+        ('voltage_band', 'line_load', 'trafo_load', 'trafo3w_load').
+        If constraints is set to 'all', all of the above are considered.
+        (Constraints like max/min p/q/tap are always considerd and must be
         defined!)
 
         selection: A string that defines the selection operator. Normally no
@@ -64,20 +64,22 @@ class GeneticAlgorithm(genetic_operators.Mixin):
         mutation: Dictionary that defines the mutation operators to use and
         their respective probabilities. See "genetic_operators.py".
 
-        termination: String that defines criterion for termination of the 
-        optimization. Possibilities are: 
+        termination: String that defines criterion for termination of the
+        optimization. Possibilities are:
         'cmp_avrg': Compare best to average solution. Terminate if similar.
-        'cmp_last': Compare best solution to best solutions n steps before. 
+        'cmp_last': Compare best solution to best solutions n steps before.
         Terminate if only marginal improvement.
-        For both, 10^-3 is the boundary for termination. 
+        For both, 10^-3 is the boundary for termination.
 
-        plot: If True -> Course of best results gets plotted in the end. 
+        plot: If True -> Course of best results gets plotted in the end.
         (Warning: stops running of the code! Set save=True to prevent that)
 
-        save: If True -> Save results and logger to newly created folder. 
+        save: If True -> Save results and logger to newly created folder.
         Plot into that folder, too.
 
         """
+
+        assert (len(variables) >= 1), 'Error: No degrees of Freedom!'
 
         self.pop_size = pop_size
         self.vars = variables
@@ -110,7 +112,7 @@ class GeneticAlgorithm(genetic_operators.Mixin):
         self.total_best_fit_course = []
         self.best_fit_course = []
         self.avrg_fit_course = []
-        
+
         self.plot = plot
         self.save = save
 
@@ -142,7 +144,7 @@ class GeneticAlgorithm(genetic_operators.Mixin):
             self.net.bus['max_vm_pu'] = pd.Series(
                 [u_max for _ in self.net.bus.index], index=self.net.bus.index)
             print(f'Set "max_vm_pu" to default ({u_max}) for all buses')
-        
+
         # TODO: Do only, if loading is constraint
         for unit in ('trafo', 'trafo3w', 'line'):
             if len(self.net[unit].index) == 0:
@@ -155,7 +157,7 @@ class GeneticAlgorithm(genetic_operators.Mixin):
                 print(f'Set "max_loading_percent" to default ({max_loading}) for all "{unit}"')
 
     def run(self, iter_max: int=None):
-        """ Run genetic algorithm until termination. Return optimized 
+        """ Run genetic algorithm until termination. Return optimized
         pandapower network and the value of the respective objective fct. """
         self.iter_max = iter_max
 
@@ -234,8 +236,8 @@ class GeneticAlgorithm(genetic_operators.Mixin):
 
         # TODO: make functions for everyone of these?!
         if self.termination_crit == 'cmp_last':
-            iter_range = round(self.iter * 0.2) + 5  
-            # TODO: Hardcoded! (Make it variable? User can define "early" or "late" termination) 
+            iter_range = round(self.iter * 0.2) + 5
+            # TODO: Hardcoded! (Make it variable? User can define "early" or "late" termination)
             if self.iter > iter_range:
                 improvement = self.total_best_fit_course[-iter_range - 1] - self.total_best_fit_course[-1]
                 rel_improvement = improvement / self.total_best_fit_course[-iter_range - 1]
@@ -298,7 +300,7 @@ class GeneticAlgorithm(genetic_operators.Mixin):
             plt.show()
 
     def create_path(self):
-        """ Create folder for data saving. The name of the folder is the 
+        """ Create folder for data saving. The name of the folder is the
         current date and time. Attention: time in virtualbox and time in host
         system are not always synchronous! """
         t = datetime.datetime.now().replace(microsecond=0).isoformat()
@@ -313,11 +315,11 @@ class GeneticAlgorithm(genetic_operators.Mixin):
                 pp.to_pickle(best_net, self.path+filename+'.p')
             elif format_ == 'json':
                 pp.to_json(best_net, self.path+filename+'.json')
-            else: 
+            else:
                 print(f'File format "{format_}" not implemented yet!')
 
     def create_result(self):
-        """ Create tuple of the variables and what best values were found for 
+        """ Create tuple of the variables and what best values were found for
         them. """
         self.result = tuple(
             [a, b, c, float(d.value)]
