@@ -240,7 +240,11 @@ class GeneticAlgorithm(genetic_operators.Mixin):
             # TODO: Hardcoded! (Make it variable? User can define "early" or "late" termination)
             if self.iter > iter_range:
                 improvement = self.total_best_fit_course[-iter_range - 1] - self.total_best_fit_course[-1]
-                rel_improvement = improvement / self.total_best_fit_course[-iter_range - 1]
+                try:
+                    rel_improvement = (improvement
+                        / self.total_best_fit_course[-iter_range - 1])
+                except ZeroDivisionError:
+                    return True
                 min_improvement = 10**-3  # TODO: Hardcoded!
                 print(f'Relative improvement in last {iter_range} steps: {rel_improvement}')
                 if rel_improvement < min_improvement:
