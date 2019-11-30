@@ -15,6 +15,8 @@ def penalty_fct(net, constraints):
         if constraints == 'none':
             return 0, True
         elif constraints == 'all':
+            # Attention: does not include 'apparent_power', because it is not
+            # included in original pandapower
             constraints = ('voltage_band', 'line_load',
                            'trafo_load', 'trafo3w_load')
 
@@ -76,5 +78,21 @@ def loading(net, costs, unit_type: str='trafo'):
         max_load = net[unit_type].max_loading_percent[idx]
         if net[f'res_{unit_type}'].loading_percent[idx] > max_load:
             penalty += (net[f'res_{unit_type}'].loading_percent[idx] - max_load) * costs
+
+    return penalty
+
+
+def apparent_power(net, costs=10000):
+    """ Punish violation of max apparent power of generators.
+
+    Add constraint 'max_s_mva' first! Use only if p and q are optimized 
+    together! """
+    penalty = 0
+    for gen_type in ('gen', 'sgen'):
+        s_gen = (net[gen_type].p_mw**2 + net[gen_type].q_mvar**2)**0.5
+        for s in s_sgen:
+            if s > net[gen_type].max_s_mva[idx]:
+                penalty += (s - net[gen_type].max_s_mva[idx]) * costs
+
 
     return penalty

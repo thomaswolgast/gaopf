@@ -1,6 +1,6 @@
 # main.py
 """
-Test the genetic algorithm for pandapower
+Perform example optimizations of the genetic algorithm for pandapower.
 
 """
 
@@ -15,7 +15,7 @@ from .obj_functs import min_p_loss
 """
 Advantages compared to pp-OPF:
 - P and Q can be optimized separately
-- arbitrary objective functions possible
+- arbitrary objective functions possible (eg n-1 criteria inclusive)
 - Tap-changer of transformer + switches + shunts can be optimized
 - Constraints can (or rather must) be soft-constraints
 -> optimal consideration of constraints as part of objective fct possible 
@@ -29,11 +29,11 @@ Nachteile:
 
 
 def main():
-    scenario1(save=True)
+    scenario1(save=False)
     scenario1ref()
-    scenario2(save=True)
+    scenario2(save=False)
     scenario2ref()
-    scenario3(save=True)
+    scenario3(save=False)
     scenario3ref()
 
 
@@ -88,6 +88,7 @@ def scenario2(save=False):
     ga = pp_ga.GeneticAlgorithm(pop_size=150, variables=variables,
                                 net=net, mutation_rate=0.001,
                                 obj_fct='min_p_loss',
+                                constraints='all',
                                 plot=True,
                                 save=save)
 
@@ -125,6 +126,8 @@ def scenario3(save=False):
     variables += [('trafo', 'tap_pos', 1)]
     variables += [('trafo3w', 'tap_pos', 0)]
 
+    constraints = ('voltage_band', 'line_load', 'trafo_load', 'trafo3w_load', 
+        'apparent_power')
     ga = pp_ga.GeneticAlgorithm(pop_size=200, variables=tuple(variables),
                                 net=net, mutation_rate=0.001,
                                 obj_fct='min_p_loss',
@@ -234,6 +237,11 @@ def create_net3():
     max_loading = 110
     net.trafo['max_loading_percent'] = pd.Series(
         [max_loading for _ in net.trafo.index], index=net.trafo.index)
+
+    # Add maximum apparent power additional constraint (as example)
+    for gen in ('gen', 'sgen'):
+        max_s = (net[gen].max_p_mw**2 + net[gen].max_q_mvar**2)**0.5
+        net[gen]['max_s_mva'] = pd.Series(max_s, index=net[gen].index)
 
     return net
 
