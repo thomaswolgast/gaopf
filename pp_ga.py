@@ -22,15 +22,15 @@ from .penalty_fcts import penalty_fct
 
 class GeneticAlgorithm(genetic_operators.Mixin):
     def __init__(self,
-                 pop_size: int,
+                 pop_size: int,  # TODO: Find good default!
                  variables: list,  # TODO: pandapower settings as default!
                  net: object,
                  mutation_rate: float,  # TODO: Find good default!
-                 obj_fct='obj_p_loss',
+                 obj_fct='min_pp_costs',
                  constraints: tuple='all',
                  selection: str='tournament',
                  crossover: str='single_point',
-                 mutation: dict={'random_init': 1.0},
+                 mutation: dict={'random_init': 1.0},  # TODO: Find good default!
                  termination: str='cmp_last',
                  plot: bool=False,
                  save: bool=False):
