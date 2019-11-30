@@ -16,14 +16,14 @@ import pandas as pd
 import pandapower as pp
 
 from . import genetic_operators
-from .util import Individual
+from .individual import Individual
 from .penalty_fcts import penalty_fct
 
 
 class GeneticAlgorithm(genetic_operators.Mixin):
     def __init__(self,
                  pop_size: int,
-                 variables: list,
+                 variables: list,  # TODO: pandapower settings as default!
                  net: object,
                  mutation_rate: float,  # TODO: Find good default!
                  obj_fct='obj_p_loss',
@@ -137,13 +137,13 @@ class GeneticAlgorithm(genetic_operators.Mixin):
             u_min = 0.9
             self.net.bus['min_vm_pu'] = pd.Series(
                 [u_min for _ in self.net.bus.index], index=self.net.bus.index)
-            print(f'Set "min_vm_pu" to default ({u_min}) for all buses')
+            print(f'Set "min_vm_pu" to default ({u_min} pu) for all buses')
 
         if 'max_vm_pu' not in self.net.bus:
             u_max = 1.1
             self.net.bus['max_vm_pu'] = pd.Series(
                 [u_max for _ in self.net.bus.index], index=self.net.bus.index)
-            print(f'Set "max_vm_pu" to default ({u_max}) for all buses')
+            print(f'Set "max_vm_pu" to default ({u_max} pu) for all buses')
 
         # TODO: Do only, if loading is constraint
         for unit in ('trafo', 'trafo3w', 'line'):
@@ -154,7 +154,7 @@ class GeneticAlgorithm(genetic_operators.Mixin):
                 self.net[unit]['max_loading_percent'] = pd.Series(
                     [max_loading for _ in self.net[unit].index],
                     index=self.net[unit].index)
-                print(f'Set "max_loading_percent" to default ({max_loading}) for all "{unit}"')
+                print(f'Set "max_loading_percent" to default ({max_loading}%) for all "{unit}"')
 
     def run(self, iter_max: int=None):
         """ Run genetic algorithm until termination. Return optimized

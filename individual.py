@@ -1,4 +1,4 @@
-# util.py
+# individual.py
 """ Some util classes for the pandapower ga-OPF.
 
 """
