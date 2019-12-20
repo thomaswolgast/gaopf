@@ -1,6 +1,6 @@
 ## Pipenv 
 
-This project uses pipenv for the required packages!
+This project uses pipenv for the required packages! Simply type `pipenv install` to create a virtual environment and install all required packages within. (pipenv must be installed first!)
 
 ## Project as package
 
