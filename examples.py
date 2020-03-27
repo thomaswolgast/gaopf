@@ -14,33 +14,26 @@ from .obj_functs import min_p_loss
 
 
 def main():
-    scenario1(save=False)
-    # scenario1ref()
-    # scenario2(save=False)
-    # scenario2ref()
-    # scenario3(save=False)
-    # scenario3ref()
+    """ Show some examples and compare results with pandapower OPF """
+    scenario1(save=False, plot=False)
+    scenario1ref()
+    scenario2(save=False, plot=False)
+    scenario2ref()
+    scenario3(save=False, plot=False)
+    scenario3ref()
 
 
-def scenario1(save=False):
+def scenario1(save=False, plot=False):
     """ GA-OPF on the grid from the simple pandapower-OPF tutorial. """
     # https://github.com/e2nIEE/pandapower/blob/master/tutorials/opf_basic.ipynb
     net = create_net1()
     variables = (('gen', 'p_mw', 0), ('gen', 'p_mw', 1),
                  ('gen', 'vm_pu', 0), ('gen', 'vm_pu', 1))
 
-    # net_opt, best_costs = pp_ga.ga_opf(pop_size=100, iter_max=20,
-    #                             variables=variables,
-    #                             net=net, 
-    #                             mutation_rate=0.001,
-    #                             obj_fct=obj_fct1,
-    #                             plot=True,
-    #                             save=save)
-
     ga = pp_ga.GeneticAlgorithm(pop_size=100, variables=variables,
                                 net=net, mutation_rate=0.001,
                                 obj_fct=obj_fct1,
-                                plot=True,
+                                plot=plot,
                                 save=save)
     net_opt, best_costs = ga.run(iter_max=20)
     print(f'Costs for GA-OPF: {best_costs}')
@@ -60,8 +53,8 @@ def scenario1ref():
     return net, net.res_cost
 
 
-def scenario2(save=False):
-    """ Test OPF with larger network (cigre mv with pv and wind). 
+def scenario2(save=False, plot=False):
+    """ Test OPF with larger network (cigre mv with pv and wind).
     Demonstrates the usage of tap-changable transformer. """
     net = create_net2()
 
@@ -82,11 +75,11 @@ def scenario2(save=False):
                                 net=net, mutation_rate=0.001,
                                 obj_fct='min_p_loss',
                                 constraints='all',
-                                plot=True,
+                                plot=plot,
                                 save=save)
 
     net_opt, best_costs = ga.run(iter_max=30)
-    print(f'Costs of ga-OPF: {best_costs}')
+    print(f'Costs of ga-OPF: {best_costs} (better than pandapower-OPF, because tap-changing is possible)')
 
     return net_opt, best_costs
 
@@ -101,14 +94,14 @@ def scenario2ref():
         pp.create_poly_cost(net, idx, 'load', cp1_eur_per_mw=-1)
     pp.runopp(net, verbose=False)
 
-    costs = min_p_loss(net)  # Pandapower costs not working: loads are not considered!?
+    costs = min_p_loss(net)  # Pandapower costs wrong: loads not considered!?
     print(f'Costs of pandapower-OPF: {costs}')
 
     return net, costs
 
 
-def scenario3(save=False):
-    """ Large multi voltage level power grid that contains all possible 
+def scenario3(save=False, plot=False):
+    """ Large multi voltage level power grid that contains all possible
     elements. If this works, everything should work!
     https://pandapower.readthedocs.io/en/v2.1.0/networks/example.html """
     net = create_net3()
@@ -119,13 +112,13 @@ def scenario3(save=False):
     variables += [('trafo', 'tap_pos', 1)]
     variables += [('trafo3w', 'tap_pos', 0)]
 
-    constraints = ('voltage_band', 'line_load', 'trafo_load', 'trafo3w_load', 
-        'apparent_power')
+    constraints = ('voltage_band', 'line_load', 'trafo_load',
+                   'trafo3w_load', 'apparent_power')
     ga = pp_ga.GeneticAlgorithm(pop_size=200, variables=tuple(variables),
                                 net=net, mutation_rate=0.001,
                                 obj_fct='min_p_loss',
                                 constraints='all',
-                                plot=True,
+                                plot=plot,
                                 termination='cmp_last',
                                 save=save)
 
@@ -150,15 +143,13 @@ def scenario3ref():
         print(f'Costs of pandapower-OPF: {costs}')
         return net, costs
     except pp.optimal_powerflow.OPFNotConverged:
-        print('Pandapower-OPF did not converge for scenario 3! (Because tap-changing not possible)')
+        print('Pandapower-OPF did not converge for scenario 3! (Because tap-changing not possible?!)')
         return None, None
-
 
 
 def obj_fct1(net):
     """ Objective function from simple pp-OPF tutorial. """
     costs = 0
-
     costs += sum(net.res_ext_grid['p_mw']) * 10
     costs += sum(net.res_gen['p_mw']) * 10
 
@@ -241,7 +232,7 @@ def create_net3():
 
 def settings_opf(net, cos_phi=0.95, max_dU=0.05):
     """ Make some general setting for reactive OPF calculation. """
-    
+
     for type_ in ('gen', 'sgen'):
         # Max and min reactive power feed-in of gens and sgens
         max_q = np.array([p * (np.arctan(np.arccos(cos_phi))) for p in net[type_].p_mw])

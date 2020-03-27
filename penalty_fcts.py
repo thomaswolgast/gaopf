@@ -8,7 +8,7 @@ A collection of penalty functions to punish selected constraint violations.
 def penalty_fct(net, constraints: list):
     """ Punish a set of constraints. Possible are: voltage band violation
     (String: 'voltage_band'), max line loading ('line_load'), max trafo
-    loading ('trafo_load' and/or 'trafo3w_load'), max apparent power of 
+    loading ('trafo_load' and/or 'trafo3w_load'), max apparent power of
     generators('apparent_power'). """
     # TODO: Add option to make penelty adjustable! -> ((constraint1, penalty1) ...) ?
 
@@ -17,7 +17,7 @@ def penalty_fct(net, constraints: list):
             return 0, True
         elif constraints == 'all':
             # Attention: does not include 'apparent_power', because it is not
-            # included in original pandapower constraints 
+            # included in original pandapower constraints
             constraints = ('voltage_band', 'line_load',
                            'trafo_load', 'trafo3w_load')
 
@@ -32,12 +32,12 @@ def penalty_fct(net, constraints: list):
     return penalty, valid
 
 
-def voltage_band(net, costs = 1000000):
+def voltage_band(net, costs=1000000):
     """ Punish voltage violations with 1 Meuro per 1pu violation.
     See https://pandapower.readthedocs.io/en/v2.1.0/opf/formulation.html for
     default voltage band values. """
     # TODO: divide upper and lower boundary into two functions?
-    
+
     penalty = 0
     for idx in net.bus.index:
 
@@ -82,7 +82,7 @@ def loading(net, costs, unit_type: str):
 def apparent_power(net, costs=10000):
     """ Punish violation of max apparent power of generators.
 
-    Add constraint 'max_s_mva' first! Use only if p and q are optimized 
+    Add constraint 'max_s_mva' first! Use only if p and q are optimized
     together! """
     penalty = 0
     for gen_type in ('gen', 'sgen'):
