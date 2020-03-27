@@ -12,21 +12,6 @@ import pandapower.networks as pn
 from . import pp_ga
 from .obj_functs import min_p_loss
 
-"""
-Advantages compared to pp-OPF:
-- P and Q can be optimized separately
-- arbitrary objective functions possible (eg n-1 criteria inclusive)
-- Tap-changer of transformer + switches + shunts can be optimized
-- Constraints can (or rather must) be soft-constraints
--> optimal consideration of constraints as part of objective fct possible 
-(e.g. min(sum((u-1)^2)))
-
-Nachteile:
-- Far slower than pp-OPF
-- More parameters (population size, max iterations etc.)
--> more programming effort
-"""
-
 
 def main():
     scenario1(save=False)
@@ -43,6 +28,12 @@ def scenario1(save=False):
     net = create_net1()
     variables = (('gen', 'p_mw', 0), ('gen', 'p_mw', 1),
                  ('gen', 'vm_pu', 0), ('gen', 'vm_pu', 1))
+
+    net_opt, best_costs = pp_ga.ga_opf(pop_size=100, variables=variables,
+                                net=net, mutation_rate=0.001,
+                                obj_fct=obj_fct1,
+                                plot=True,
+                                save=save)
 
     ga = pp_ga.GeneticAlgorithm(pop_size=100, variables=variables,
                                 net=net, mutation_rate=0.001,

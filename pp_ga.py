@@ -20,6 +20,275 @@ from .individual import Individual
 from .penalty_fcts import penalty_fct
 
 
+def ga_opf(net: object,
+           iter_max: int, 
+           pop_size: int,  # TODO: Find good default!       
+           mutation_rate: float,  # TODO: Find good default!
+           variables: list=[],  # TODO: pandapower settings as default!
+           obj_fct='min_pp_costs',
+           constraints: tuple='all',
+           selection: str='tournament',
+           crossover: str='single_point',
+           mutation: dict={'random_init': 1.0},  # TODO: Find good default!
+           termination: str='cmp_last',
+           plot: bool=False,
+           save: bool=False,
+           copy: bool=False):
+    """
+    pop_size: Population size; number of parallel solutions (called
+    individuals here).
+
+    variables: All degrees of freedom for optimization. A list of tuples like:
+    (unit_type, actuator, index), e.g. ('sgen', 'p_mv', 1).
+
+    net: A pandapower net object with defined constraints.
+
+    mutation_rate: The probability a single variable gets altered randomly.
+    Look into genetic algorithm literature for information.
+
+    obj_fct: A user- or pre-defined objective function to minimize. Use your
+    own function here or use string of pre-defined function name.
+    See "obj_functs.py" for pre-implemented functions like 'min_p_loss'.
+
+    constraints: A tuple of system constraints to consider. Options are:
+    ('voltage_band', 'line_load', 'trafo_load', 'trafo3w_load').
+    If constraints is set to 'all', all of the above are considered.
+    (Constraints like max/min p/q/tap are always considerd and must be
+    defined!)
+
+    selection: A string that defines the selection operator. Normally no
+    adjustment required! See "genetic_operators.py" for possible options.
+
+    crossover: Same as for selection operator.
+
+    mutation: Dictionary that defines the mutation operators to use and their
+    respective probabilities. See "genetic_operators.py".
+
+    termination: String that defines criterion for termination of the
+    optimization. Possibilities are:
+    'cmp_avrg': Compare best to average solution. Terminate if similar.
+    'cmp_last': Compare best solution to best solutions n steps before.
+    Terminate if only marginal improvement.
+    For both, 10^-3 is the boundary for termination.
+
+    plot: If True -> Course of best results gets plotted in the end.
+    (Warning: stops running of the code! Set save=True to prevent that)
+
+    save: If True -> Save results and logger to newly created folder.
+    Plot into that folder, too.
+
+    copy: If True -> Not the input net gets optimized, but instead a copy is
+    created and optimized.
+
+    """
+
+    if copy is True:
+        # Make sure that original net does not get altered
+        net = deepcopy(net)
+    if save is True:
+        path = create_path()
+
+    if variables == []:
+        # Default: Take degrees of freedom from pp-network
+        variables = pp_vars(net)
+
+    assert_unit_state(net, variables, status='controllable')
+    assert_unit_state(net, variables, status='in_service')
+    set_defaults(net)
+
+    # Choose objective function (attention: all objective
+    # functions must be written as minimization!)
+    if isinstance(obj_fct, str):
+        # Select from pre-defined objective functions (e.g. reduce loss)
+        from . import obj_functs
+        obj_fct = getattr(obj_functs, obj_fct)
+
+    # Start Genetic Algorithm -> TODO: make a function of this part
+    pop, best_ind = init_pop(net, variables, pop_size)
+    total_best_fits = []
+    best_fits = []
+    avrg_fits = []
+    for iter_ in range(1, iter_max+1):
+        print(f'Step {iter_}')
+
+        pop, new_best = fit_fct(net, pop, penalty_fct, obj_fct)
+        best_fits.append(new_best.fitness)
+        if new_best.fitness < best_ind.fitness:
+            best_ind = new_best
+        total_best_fits.append(best_ind.fitness)
+        avrg_fits.append(sum([ind.fitness for ind in pop]) / len(pop))
+
+        if termination(iter_, total_best_fits, avrg_fits) or iter_>= iter_max:
+            break
+        genetic_operators.selection(sel_operator=selection)
+        genetic_operators.recombination(cross_operator=crossover)
+        genetic_operators.mutation(mutation_rate, mut_operators=mutation)
+
+    if best_ind.valid is False:
+        # TODO: proper logging instead!
+        # Or raise error here like pandapower does?
+        print(f'Attention: Solution does not fulfill all constraints!')
+
+    opt_net, _ = update_net(net, best_ind)
+    create_result()
+    save_net(best_net=opt_net)
+
+    # Plot results
+    if plot is True:
+        plot_fit_courses()
+
+    return opt_net, best_ind.fitness
+
+
+def pp_vars(net):
+    """ Take degrees of freedom from pandapower network. """
+    # TODO: add Transformers and other possible actuators
+    variables = []
+    actuators = ('gen', 'sgen', 'load'):
+    for actuator in actuators:
+        if 'controllable' not in net[actuator]:
+            continue
+
+        for idx in net[actuator].index:
+            if net[actuator].controllable[idx]:
+                variables.append((actuator, 'p_mw', idx))
+                variables.append((actuator, 'q_mvar', idx))
+
+    return variables
+
+
+def assert_unit_state(net, vars_, status: str='controllable'):
+    """ Assert that units to be optimized are usable beforehand by
+    checking 'in_service' or 'controllable' of each actuator. If they
+    are not defined, they are assumed to be True. """
+    for unit_type, _, idx in vars_:
+        if status not in net[unit_type]:
+            print(f"'{status}' of {unit_type}_{idx} not defined. Assumed to be True!")
+        else:
+            assert bool(net[unit_type][status][idx]) is True, f"""
+            Error: {unit_type}-{idx} is not '{status}'!"""
+
+def set_defaults(net):
+    """ If some boundaries are not given, set them to default value. """
+    # TODO: Do only, if voltage band is constraint
+    if 'min_vm_pu' not in net.bus:
+        u_min = 0.9
+        net.bus['min_vm_pu'] = pd.Series(
+            [u_min for _ in net.bus.index], index=net.bus.index)
+        print(f'Set "min_vm_pu" to default ({u_min} pu) for all buses')
+
+    if 'max_vm_pu' not in net.bus:
+        u_max = 1.1
+        net.bus['max_vm_pu'] = pd.Series(
+            [u_max for _ in net.bus.index], index=net.bus.index)
+        print(f'Set "max_vm_pu" to default ({u_max} pu) for all buses')
+
+    # TODO: Do only, if loading is constraint
+    for unit in ('trafo', 'trafo3w', 'line'):
+        if len(net[unit].index) == 0:
+            continue
+        if 'max_loading_percent' not in net[unit]:
+            max_loading = 100
+            net[unit]['max_loading_percent'] = pd.Series(
+                [max_loading for _ in net[unit].index],
+                index=net[unit].index)
+            print(f'Set "max_loading_percent" to default ({max_loading}%) for all "{unit}"')
+
+
+def create_path():
+    """ Create folder  data saving. The name of the folder is the
+    current date and time. Attention: time in virtualbox and time in host
+    system are not always synchronous! """
+    t = datetime.datetime.now().replace(microsecond=0).isoformat()
+    path = f'ga_opf_pp/Results/{t}/'.replace(':', '.').replace('T', ' ')
+    os.makedirs(path)
+    return path
+
+
+def init_pop(net, variables, pop_size):
+    """ Random initilization of the population. """
+    pop = [Individual(variables, net) for _ in range(pop_size)]
+    best_ind = pop[0]
+    best_ind.fitness = 1e9
+    return pop, best_ind
+
+
+def fit_fct(net, pop, penalty_fct, obj_fct):
+    """ Calculate fitness for each individual, including penalties for
+    constraint violations which gets added to the objective function. """
+    for ind in pop:
+        net, ind.failure = update_net(net, ind)
+
+        # Check for failed power flow calculation
+        if ind.failure is True:
+            continue
+
+        # Check if constraints are violated and calculate penalty
+        ind.penalty, ind.valid = penalty_fct(net, constraints)
+
+        # Assign fitness value to each individual
+        ind.fitness = obj_fct(net=net) + ind.penalty
+
+    # Delete individuals with failed power flow (not evaluatable)
+    pop = tuple(filter(lambda ind: not ind.failure, pop))
+
+    # Evaluation of fitness values
+    best_ind = min(pop, key=lambda ind: ind.fitness)
+
+    return pop, best_ind, average_fitness
+
+
+    def update_net(net, ind, variables):
+        """ Update a given pandapower network to the state of a single
+        individual and perform power flow calculation. """
+
+        # Update the actuators to be optimized
+        for (unit_type, actuator, idx), nmbr in zip(variables, ind):
+            net[unit_type][actuator][idx] = nmbr.value
+
+        # Update the power flow results by performing pf-calculation
+        failure = False
+        try:
+            pp.runpp(net, enforce_q_lims=True)
+        except KeyboardInterrupt:
+            print('Optimization interrupted by user!')
+            sys.exit()
+        except:
+            print('Power flow calculation failed!')
+            # TODO: Include unit test to make sure this works!
+            failure = True
+
+        return net, failure
+
+
+def termination(iter_, total_best_fit_course, avrg_fit_course):
+    """ Terminate if max iteration number is reached. """
+
+    # TODO: make functions for everyone of these?!
+    if termination_crit == 'cmp_last':
+        iter_range = round(iter_ * 0.2) + 5
+        # TODO: Hardcoded! (Make it variable? User can define "early" or "late" termination)
+        if iter_ > iter_range:
+            improvement = total_best_fit_course[-iter_range - 1] - total_best_fit_course[-1]
+            try:
+                rel_improvement = (improvement
+                    / total_best_fit_course[-iter_range - 1])
+            except ZeroDivisionError:
+                return True
+            min_improvement = 10**-3  # TODO: Hardcoded!
+            print(f'Relative improvement in last {iter_range} steps: {rel_improvement}')
+            if rel_improvement < min_improvement:
+                return True
+
+    if termination_crit == 'cmp_avrg':
+        diff_to_avrg = avrg_fit_course[-1] - total_best_fit_course[-1]
+        rel_diff_to_avrg = diff_to_avrg / avrg_fit_course[-1]
+        min_difference = 10**-3  # TODO: Hardcode
+        print(f'Relative difference to average: {rel_diff_to_avrg}')
+        if rel_diff_to_avrg < min_difference:
+            return True
+
+
 class GeneticAlgorithm(genetic_operators.Mixin):
     def __init__(self,
                  pop_size: int,  # TODO: Find good default!
