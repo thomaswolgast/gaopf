@@ -15,11 +15,11 @@ from .obj_functs import min_p_loss
 
 def main():
     scenario1(save=False)
-    scenario1ref()
-    scenario2(save=False)
-    scenario2ref()
-    scenario3(save=False)
-    scenario3ref()
+    # scenario1ref()
+    # scenario2(save=False)
+    # scenario2ref()
+    # scenario3(save=False)
+    # scenario3ref()
 
 
 def scenario1(save=False):
@@ -29,11 +29,13 @@ def scenario1(save=False):
     variables = (('gen', 'p_mw', 0), ('gen', 'p_mw', 1),
                  ('gen', 'vm_pu', 0), ('gen', 'vm_pu', 1))
 
-    net_opt, best_costs = pp_ga.ga_opf(pop_size=100, variables=variables,
-                                net=net, mutation_rate=0.001,
-                                obj_fct=obj_fct1,
-                                plot=True,
-                                save=save)
+    # net_opt, best_costs = pp_ga.ga_opf(pop_size=100, iter_max=20,
+    #                             variables=variables,
+    #                             net=net, 
+    #                             mutation_rate=0.001,
+    #                             obj_fct=obj_fct1,
+    #                             plot=True,
+    #                             save=save)
 
     ga = pp_ga.GeneticAlgorithm(pop_size=100, variables=variables,
                                 net=net, mutation_rate=0.001,

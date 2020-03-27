@@ -111,7 +111,7 @@ def ga_opf(net: object,
     for iter_ in range(1, iter_max+1):
         print(f'Step {iter_}')
 
-        pop, new_best = fit_fct(net, pop, penalty_fct, obj_fct)
+        pop, new_best = fit_fct(net, pop, penalty_fct, obj_fct, variables, constraints)
         best_fits.append(new_best.fitness)
         if new_best.fitness < best_ind.fitness:
             best_ind = new_best
@@ -144,7 +144,7 @@ def pp_vars(net):
     """ Take degrees of freedom from pandapower network. """
     # TODO: add Transformers and other possible actuators
     variables = []
-    actuators = ('gen', 'sgen', 'load'):
+    actuators = ('gen', 'sgen', 'load')
     for actuator in actuators:
         if 'controllable' not in net[actuator]:
             continue
@@ -213,11 +213,11 @@ def init_pop(net, variables, pop_size):
     return pop, best_ind
 
 
-def fit_fct(net, pop, penalty_fct, obj_fct):
+def fit_fct(net, pop, penalty_fct, obj_fct, variables, constraints):
     """ Calculate fitness for each individual, including penalties for
     constraint violations which gets added to the objective function. """
     for ind in pop:
-        net, ind.failure = update_net(net, ind)
+        net, ind.failure = update_net(net, ind, variables)
 
         # Check for failed power flow calculation
         if ind.failure is True:
@@ -238,27 +238,27 @@ def fit_fct(net, pop, penalty_fct, obj_fct):
     return pop, best_ind, average_fitness
 
 
-    def update_net(net, ind, variables):
-        """ Update a given pandapower network to the state of a single
-        individual and perform power flow calculation. """
+def update_net(net, ind, variables):
+    """ Update a given pandapower network to the state of a single
+    individual and perform power flow calculation. """
 
-        # Update the actuators to be optimized
-        for (unit_type, actuator, idx), nmbr in zip(variables, ind):
-            net[unit_type][actuator][idx] = nmbr.value
+    # Update the actuators to be optimized
+    for (unit_type, actuator, idx), nmbr in zip(variables, ind):
+        net[unit_type][actuator][idx] = nmbr.value
 
-        # Update the power flow results by performing pf-calculation
-        failure = False
-        try:
-            pp.runpp(net, enforce_q_lims=True)
-        except KeyboardInterrupt:
-            print('Optimization interrupted by user!')
-            sys.exit()
-        except:
-            print('Power flow calculation failed!')
-            # TODO: Include unit test to make sure this works!
-            failure = True
+    # Update the power flow results by performing pf-calculation
+    failure = False
+    try:
+        pp.runpp(net, enforce_q_lims=True)
+    except KeyboardInterrupt:
+        print('Optimization interrupted by user!')
+        sys.exit()
+    except:
+        print('Power flow calculation failed!')
+        # TODO: Include unit test to make sure this works!
+        failure = True
 
-        return net, failure
+    return net, failure
 
 
 def termination(iter_, total_best_fit_course, avrg_fit_course):
