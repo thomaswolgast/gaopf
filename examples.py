@@ -1,6 +1,7 @@
-# main.py
+# examples.py
 """
-Perform example optimizations of the genetic algorithm for pandapower.
+Perform example optimizations of the genetic algorithm to demonstrate how it
+can be used.
 
 """
 
@@ -15,11 +16,11 @@ from .obj_functs import min_p_loss
 
 def main():
     """ Show some examples and compare results with pandapower OPF """
-    scenario1(save=False, plot=False)
+    scenario1(save=False, plot=True)
     scenario1ref()
-    scenario2(save=False, plot=False)
+    scenario2(save=False, plot=True)
     scenario2ref()
-    scenario3(save=False, plot=False)
+    scenario3(save=False, plot=True)
     scenario3ref()
 
 
@@ -112,9 +113,7 @@ def scenario3(save=False, plot=False):
     variables += [('trafo', 'tap_pos', 1)]
     variables += [('trafo3w', 'tap_pos', 0)]
 
-    constraints = ('voltage_band', 'line_load', 'trafo_load',
-                   'trafo3w_load', 'apparent_power')
-    ga = pp_ga.GeneticAlgorithm(pop_size=200, variables=tuple(variables),
+    ga = pp_ga.GeneticAlgorithm(pop_size=150, variables=tuple(variables),
                                 net=net, mutation_rate=0.001,
                                 obj_fct='min_p_loss',
                                 constraints='all',
@@ -280,6 +279,7 @@ def settings_opf(net, cos_phi=0.95, max_dU=0.05):
         [max_loading for _ in net.trafo.index], index=net.trafo.index)
 
     return net
+
 
 if __name__ == '__main__':
     main()

@@ -11,15 +11,16 @@ def penalty_fct(net, constraints: list):
     loading ('trafo_load' and/or 'trafo3w_load'), max apparent power of
     generators('apparent_power'). """
     # TODO: Add option to make penelty adjustable! -> ((constraint1, penalty1) ...) ?
-
     if isinstance(constraints, str):
         if constraints == 'none':
             return 0, True
         elif constraints == 'all':
-            # Attention: does not include 'apparent_power', because it is not
-            # included in original pandapower constraints
-            constraints = ('voltage_band', 'line_load',
-                           'trafo_load', 'trafo3w_load')
+            if 'max_s_mva' in net.sgen and 'max_s_mva' in net.gen:
+                constraints = ('voltage_band', 'line_load', 'trafo_load',
+                               'trafo3w_load', 'apparent_power')
+            else:
+                constraints = ('voltage_band', 'line_load',
+                               'trafo_load', 'trafo3w_load')
 
     penalty = sum([eval(constraint)(net) for constraint in constraints])
 
@@ -87,8 +88,8 @@ def apparent_power(net, costs=10000):
     penalty = 0
     for gen_type in ('gen', 'sgen'):
         s_gen = (net[gen_type].p_mw**2 + net[gen_type].q_mvar**2)**0.5
-        for s in s_sgen:
-            if s > net[gen_type].max_s_mva[idx]:
-                penalty += (s - net[gen_type].max_s_mva[idx]) * costs
+        for idx, s_mva in zip(net[gen_type].index, s_gen):
+            if s_mva > net[gen_type].max_s_mva[idx]:
+                penalty += (s_mva - net[gen_type].max_s_mva[idx]) * costs
 
     return penalty

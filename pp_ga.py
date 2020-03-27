@@ -51,9 +51,10 @@ class GeneticAlgorithm(genetic_operators.Mixin):
         See "obj_functs.py" for pre-implemented functions like 'min_p_loss'.
 
         constraints: A tuple of system constraints to consider. Options are:
-        ('voltage_band', 'line_load', 'trafo_load', 'trafo3w_load').
+        ('voltage_band', 'line_load', 'trafo_load', 'trafo3w_load',
+        'apparent_power').
         If constraints is set to 'all', all of the above are considered.
-        (Constraints like max/min p/q/tap are always considerd and must be
+        (Constraints like max/min p/q/tap are always considered and must be
         defined!)
 
         selection: A string that defines the selection operator. Normally no

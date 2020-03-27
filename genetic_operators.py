@@ -1,6 +1,7 @@
 # genetic_operators.py
 """
-A collection of genetic operators for the pandapower ga-OPF, including selection, crossover, and mutation operators.
+A collection of genetic operators for the pandapower ga-OPF, including
+selection, crossover, and mutation operators.
 
 """
 
