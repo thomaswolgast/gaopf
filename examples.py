@@ -10,8 +10,12 @@ import pandas as pd
 import pandapower as pp
 import pandapower.networks as pn
 
-from . import pp_ga
-from .obj_functs import min_p_loss
+try:
+    from ga import pp_ga
+    from ga.obj_functs import min_p_loss
+except ImportError:
+    from .ga import pp_ga
+    from .ga.obj_functs import min_p_loss
 
 
 def main():
