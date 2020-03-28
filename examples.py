@@ -20,12 +20,12 @@ except ImportError:
 
 def main():
     """ Show some examples and compare results with pandapower OPF """
-    scenario1(save=False, plot=True)
-    scenario1ref()
-    scenario2(save=False, plot=True)
+    # scenario1(save=False, plot=False)
+    # scenario1ref()
+    scenario2(save=True, plot=True)
     scenario2ref()
-    scenario3(save=False, plot=True)
-    scenario3ref()
+    # scenario3(save=False, plot=False)
+    # scenario3ref()
 
 
 def scenario1(save=False, plot=False):
@@ -193,7 +193,7 @@ def create_net1():
 def create_net2():
     """ Cigre MV: Net + constraints for optimal reactive power flow. """
     net = pn.create_cigre_network_mv(with_der='pv_wind')
-    net = settings_opf(net)
+    net = settings_orpf(net)
 
     # Make trafo tap-changable with tap-range [-2, +2]
     net.trafo.tap_pos = pd.Series([0, 0], index=net.trafo.index)
@@ -214,7 +214,7 @@ def create_net2():
 def create_net3():
     """ 57 bus net with all kinds of elements. """
     net = pn.example_multivoltage()
-    net = settings_opf(net)
+    net = settings_orpf(net)
 
     # Allow more loading (otherwise no valid solution)
     max_loading = 120
@@ -233,9 +233,8 @@ def create_net3():
     return net
 
 
-def settings_opf(net, cos_phi=0.95, max_dU=0.05):
-    """ Make some general setting for reactive OPF calculation. """
-
+def settings_orpf(net, cos_phi=0.95, max_dU=0.05):
+    """ Make some general setting for ORPF calculation. """
     for type_ in ('gen', 'sgen'):
         # Max and min reactive power feed-in of gens and sgens
         max_q = np.array([p * (np.arctan(np.arccos(cos_phi))) for p in net[type_].p_mw])

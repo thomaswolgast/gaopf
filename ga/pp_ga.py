@@ -6,16 +6,14 @@ networks.
 """
 
 from copy import deepcopy
-import datetime
 import json
-import os
 import sys
 
-import matplotlib.pyplot as plt
 import pandas as pd
 import pandapower as pp
 
 from . import genetic_operators
+from . import util
 from .individual import Individual
 from .penalty_fcts import penalty_fct
 
@@ -118,7 +116,9 @@ class GeneticAlgorithm(genetic_operators.Mixin):
         self.save = save
 
         if save is True:
-            self.create_path()
+            self.path = util.create_path()
+        else:
+            self.path = None
 
     def assert_unit_state(self, status: str='controllable'):
         """ Assert that units to be optimized are usable beforehand by
@@ -184,11 +184,12 @@ class GeneticAlgorithm(genetic_operators.Mixin):
 
         self.opt_net, _ = self.update_net(self.net, self.best_ind)
         self.create_result()
-        self.save_net(best_net=self.opt_net)
+        if self.save is True:
+            util.save_net(best_net=self.opt_net, path=self.path)
 
-        # Plot results
         if self.plot is True:
-            self.plot_fit_courses()
+            util.plot_fit_courses(self.save, self.path,
+                self.best_fit_course, self.total_best_fit_course)
 
         return self.opt_net, self.best_ind.fitness
 
@@ -205,7 +206,6 @@ class GeneticAlgorithm(genetic_operators.Mixin):
         for ind in self.pop:
             net, ind.failure = self.update_net(self.net, ind)
 
-            # Check for failed power flow calculation
             if ind.failure is True:
                 continue
 
@@ -235,7 +235,7 @@ class GeneticAlgorithm(genetic_operators.Mixin):
             if self.iter >= self.iter_max:
                 return True
 
-        # TODO: make functions for everyone of these?!
+        # TODO: make functions for each of these?!
         if self.termination_crit == 'cmp_last':
             iter_range = round(self.iter * 0.2) + 5
             # TODO: Hardcoded! (Make it variable? User can define "early" or "late" termination)
@@ -280,48 +280,6 @@ class GeneticAlgorithm(genetic_operators.Mixin):
             failure = True
 
         return net, failure
-
-    def plot_fit_courses(self, average_inclusive=False):
-        """ Plot the total best fitness value, the best fitness value of the
-        respective step as course over the iterations. (Optionally: Plot the
-        average fitness. Problematic because of penalties) """
-
-        plt.plot(self.best_fit_course, label='Best costs')
-        plt.plot(self.total_best_fit_course, label='Total best costs')
-        if average_inclusive is True:
-            plt.plot(self.avrg_fit_course, label='Average costs')
-        plt.legend(loc='upper right')
-
-        plt.ylabel('Total costs')
-        plt.xlabel('Iteration number')
-
-        if self.save is True:
-            format_type = 'png'
-            plt.savefig(f'{self.path}optimization_course.{format_type}',
-                        format=format_type,
-                        bbox_inches='tight')
-            plt.close()
-        else:
-            plt.show()
-
-    def create_path(self):
-        """ Create folder for data saving. The name of the folder is the
-        current date and time. Attention: time in virtualbox and time in host
-        system are not always synchronous! """
-        t = datetime.datetime.now().replace(microsecond=0).isoformat()
-        self.path = f'ga_opf_pp/Results/{t}/'.replace(':', '.').replace('T', ' ')
-        os.makedirs(self.path)
-
-    def save_net(self, best_net, format_='pickle'):
-        """ Save pandapower network to pickle file. """
-        if self.save is True:
-            filename = 'best_net'
-            if format_ == 'pickle':
-                pp.to_pickle(best_net, self.path+filename+'.p')
-            elif format_ == 'json':
-                pp.to_json(best_net, self.path+filename+'.json')
-            else:
-                print(f'File format "{format_}" not implemented yet!')
 
     def create_result(self):
         """ Create tuple of the variables and what best values were found for
