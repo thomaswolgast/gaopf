@@ -14,7 +14,7 @@ from ga import pp_ga
 def main():
     ga = scenario()
 
-    gas = (scenario1(copy.deepcopy(ga)), scenario2(copy.deepcopy(ga)))
+    gas = (scenario1(copy.deepcopy(ga)), scenario2(copy.deepcopy(ga)), scenario3(copy.deepcopy(ga)))
     n_runs = 10
     costs = []
     times = []
@@ -25,7 +25,7 @@ def main():
         costs.append(cost)
 
     for ga, cost, t in zip(gas, costs, times):
-        print('Operators: ', ga.mut_operators)
+        print('Mutation rate: ', ga.mutation_rate)
         print('Average costs: ', cost)
         print('Time consumption: ', t)
         print()
@@ -57,13 +57,19 @@ def scenario():
 
 def scenario1(ga):
     """ standard settings """
-    ga.mut_operators = {'random_init': 1.0}
+    ga.mutation_rate = 0.05
     return ga
 
 
 def scenario2(ga):
     """ standard settings """
-    ga.mut_operators = {'increase': 0.5, 'decrease': 0.5}
+    ga.mutation_rate = 0.02
+    return ga
+
+
+def scenario3(ga):
+    """ standard settings """
+    ga.mutation_rate = 0.01
     return ga
 
 

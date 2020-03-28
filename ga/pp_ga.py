@@ -23,12 +23,12 @@ class GeneticAlgorithm(genetic_operators.Mixin):
                  pop_size: int,  # TODO: Find good default!
                  variables: list,  # TODO: pandapower settings as default!
                  net: object,
-                 mutation_rate: float,  # TODO: Find good default!
+                 mutation_rate: float=0.01,  # TODO: Find good default!
                  obj_fct='min_pp_costs',
                  constraints: tuple='all',
                  selection: str='tournament',
                  crossover: str='single_point',
-                 mutation: dict={'random_init': 1.0},  # TODO: Find good default!
+                 mutation: dict={'increase': 0.5, 'decrease': 0.5},  # TODO: Find good default!
                  termination: str='cmp_last',
                  plot: bool=False,
                  save: bool=False):
