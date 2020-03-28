@@ -20,12 +20,12 @@ except ImportError:
 
 def main():
     """ Show some examples and compare results with pandapower OPF """
-    # scenario1(save=False, plot=False)
-    # scenario1ref()
-    scenario2(save=True, plot=True)
+    scenario1(save=False, plot=False)
+    scenario1ref()
+    scenario2(save=False, plot=False)
     scenario2ref()
-    # scenario3(save=False, plot=False)
-    # scenario3ref()
+    scenario3(save=False, plot=False)
+    scenario3ref()
 
 
 def scenario1(save=False, plot=False):

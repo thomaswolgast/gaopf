@@ -111,6 +111,7 @@ class LmtInt(LmtNumber):
         elif self.distribution == 'normal':
             self.value = round(np.random.normal(0, 0.5) * self.range
                                + self.min_boundary)
+
     def increase(self):
         self.value += 1
 

@@ -13,7 +13,7 @@ To run the example file, go to the parent directory and call
 
 ### Advantages
 - P and Q can be optimized separately
-- Arbitrary objective functions possible (e.g. min(sum((u-1)^2)))
+- Arbitrary objective functions possible (e.g. `min sum((u-1)^2)`)
 - Arbitrary constraints are easily to include (e.g. max apparent power)
 - Tap-changer of transformer + switches + shunts can be optimized, too
 - Constraints can (or rather must) be soft-constraints
