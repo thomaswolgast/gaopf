@@ -20,4 +20,5 @@ To run the example file, go to the parent directory and call
 
 ### Disadvantages
 - Far slower than pp-OPF
+- No optimality guarantee
 - More parameters (population size, mutation rate etc.) -> more effort for implementation
