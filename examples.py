@@ -60,7 +60,7 @@ def scenario1ref():
     pp.create_poly_cost(net, 0, 'gen', cp1_eur_per_mw=10)
     pp.create_poly_cost(net, 1, 'gen', cp1_eur_per_mw=10)
     pp.runopp(net)
-    print(f'Costs for pandapower-OPF: {net.res_cost}')
+    print(f'Costs for pandapower-OPF: {net.res_cost} \n')
 
     return net, net.res_cost
 
@@ -109,7 +109,7 @@ def scenario2ref():
     pp.runopp(net, verbose=False)
 
     costs = min_p_loss(net)  # Pandapower costs wrong: loads not considered!?
-    print(f'Costs of pandapower-OPF: {costs}')
+    print(f'Costs of pandapower-OPF: {costs}  \n')
 
     return net, costs
 
@@ -162,7 +162,7 @@ def scenario3ref():
         print(f'Costs of pandapower-OPF: {costs}')
         return net, costs
     except pp.optimal_powerflow.OPFNotConverged:
-        print('Pandapower-OPF did not converge for scenario 3! (Because tap-changing not possible?!)')
+        print('Pandapower-OPF did not converge for scenario 3! (Because tap-changing not possible?!) \n')
         return None, None
 
 

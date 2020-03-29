@@ -25,7 +25,7 @@ class GeneticAlgorithm(genetic_operators.Mixin):
                  net: object,
                  mutation_rate: float=0.01,  # TODO: Find good default!
                  obj_fct='min_pp_costs',
-                 constraints: tuple='all',
+                 constraints: tuple='all', # TODO: pp-constraints as default?
                  selection: str='tournament',
                  crossover: str='single_point',
                  mutation: dict={'increase': 0.5, 'decrease': 0.5},  # TODO: Find good default!
@@ -160,22 +160,19 @@ class GeneticAlgorithm(genetic_operators.Mixin):
     def run(self, iter_max: int=None):
         """ Run genetic algorithm until termination. Return optimized
         pandapower network and the value of the respective objective fct. """
-        self.iter_max = iter_max
 
         self.init_pop()
 
-        self.iter = 0
-        while True:
-            print(f'Step {self.iter}')  # TODO: proper logging instead!
+        for n_iter in range(iter_max):
+            self.n_iter = n_iter
+            print(f'Step {n_iter}')  # TODO: proper logging instead!
             self.fit_fct()
-            if self.termination() is True:
+            if getattr(self, self.termination_crit)() is True:
                 break
             self.selection(sel_operator=self.sel_operator)
             self.recombination(cross_operator=self.cross_operator)
             self.mutation(self.mutation_rate,
                           mut_operators=self.mut_operators)
-
-            self.iter += 1
 
         if self.best_ind.valid is False:
             # TODO: Raise error here like pandapower does?
@@ -228,35 +225,34 @@ class GeneticAlgorithm(genetic_operators.Mixin):
             [ind.fitness for ind in self.pop]) / len(self.pop)
         self.avrg_fit_course.append(average_fitness)
 
-    def termination(self):
-        """ Terminate if max iteration number is reached. """
-        if self.iter_max:
-            if self.iter >= self.iter_max:
+    def cmp_last(self):
+        """ Termination criterion: Check if best solution still changes.
+        Idea check not last x=const iterations, but consider an increasing
+        number of last iterations instead. It does not make sense to look
+        back only 5 iterations in a 100+ iterations optimization.
+        TODO: Termination criteria to own file? """
+        iter_range = round(self.n_iter * 0.2) + 5
+        # TODO: Hardcoded! (Make it variable? User can define "early" or "late" termination)
+        if self.n_iter > iter_range:
+            improvement = self.total_best_fit_course[-iter_range - 1] - self.total_best_fit_course[-1]
+            try:
+                rel_improvement = (improvement
+                    / self.total_best_fit_course[-iter_range - 1])
+            except ZeroDivisionError:
+                return True
+            min_improvement = 10**-3  # TODO: Hardcoded!
+            print(f'Relative improvement in last {iter_range} steps: {rel_improvement}')
+            if rel_improvement < min_improvement:
                 return True
 
-        # TODO: make functions for each of these?!
-        if self.termination_crit == 'cmp_last':
-            iter_range = round(self.iter * 0.2) + 5
-            # TODO: Hardcoded! (Make it variable? User can define "early" or "late" termination)
-            if self.iter > iter_range:
-                improvement = self.total_best_fit_course[-iter_range - 1] - self.total_best_fit_course[-1]
-                try:
-                    rel_improvement = (improvement
-                        / self.total_best_fit_course[-iter_range - 1])
-                except ZeroDivisionError:
-                    return True
-                min_improvement = 10**-3  # TODO: Hardcoded!
-                print(f'Relative improvement in last {iter_range} steps: {rel_improvement}')
-                if rel_improvement < min_improvement:
-                    return True
-
-        if self.termination_crit == 'cmp_avrg':
-            diff_to_avrg = self.avrg_fit_course[-1] - self.total_best_fit_course[-1]
-            rel_diff_to_avrg = diff_to_avrg / self.avrg_fit_course[-1]
-            min_difference = 10**-3  # TODO: Hardcode
-            print(f'Relative difference to average: {rel_diff_to_avrg}')
-            if rel_diff_to_avrg < min_difference:
-                return True
+    def cmp_avrg(self):
+        """ Termination criterion: Check if average increased enough. """
+        diff_to_avrg = self.avrg_fit_course[-1] - self.total_best_fit_course[-1]
+        rel_diff_to_avrg = diff_to_avrg / self.avrg_fit_course[-1]
+        min_difference = 10**-3  # TODO: Hardcode
+        print(f'Relative difference to average: {rel_diff_to_avrg}')
+        if rel_diff_to_avrg < min_difference:
+            return True
 
     def update_net(self, net, ind):
         """ Update a given pandapower network to the state of a single
