@@ -20,26 +20,33 @@ except ImportError:
 
 def main():
     """ Show some examples and compare results with pandapower OPF """
-    scenario1(save=False, plot=False)
+    save_results = False
+    scenario1(save=save_results, plot=save_results)
     scenario1ref()
-    scenario2(save=False, plot=False)
+    scenario2(save=save_results, plot=save_results)
     scenario2ref()
-    scenario3(save=False, plot=False)
+    scenario3(save=save_results, plot=save_results)
     scenario3ref()
 
 
 def scenario1(save=False, plot=False):
-    """ GA-OPF on the grid from the simple pandapower-OPF tutorial. """
+    """ GA-OPF on the grid from the simple pandapower-OPF tutorial.
+    Demonstrates how an arbitrary objective function can be used. """
     # https://github.com/e2nIEE/pandapower/blob/master/tutorials/opf_basic.ipynb
     net = create_net1()
+    # Define degrees of freedom as tuple/list of tuples which identify a
+    # single unit in pandapower respectively
     variables = (('gen', 'p_mw', 0), ('gen', 'p_mw', 1),
                  ('gen', 'vm_pu', 0), ('gen', 'vm_pu', 1))
 
-    ga = pp_ga.GeneticAlgorithm(pop_size=100, variables=variables,
-                                net=net, mutation_rate=0.001,
-                                obj_fct=obj_fct1,
-                                plot=plot,
-                                save=save)
+    def obj_fct1(net):
+        """ Objective function from simple pp-OPF tutorial. """
+        costs = sum(net.res_ext_grid['p_mw']) * 10
+        costs += sum(net.res_gen['p_mw']) * 10
+        return costs
+
+    ga = pp_ga.GeneticAlgorithm(pop_size=100, variables=variables, net=net,
+                                obj_fct=obj_fct1, plot=plot, save=save)
     net_opt, best_costs = ga.run(iter_max=20)
     print(f'Costs for GA-OPF: {best_costs}')
 
@@ -60,7 +67,8 @@ def scenario1ref():
 
 def scenario2(save=False, plot=False):
     """ Test OPF with larger network (cigre mv with pv and wind).
-    Demonstrates the usage of tap-changable transformer. """
+    Demonstrates the usage of tap-changable transformer and how considered
+    constraints can be chosen as a tuple of strings. """
     net = create_net2()
 
     # Degrees of freedom for optimization
@@ -76,10 +84,11 @@ def scenario2(save=False, plot=False):
                  ('trafo', 'tap_pos', 0),
                  ('trafo', 'tap_pos', 1))
 
+    constraints = ('voltage_band', 'line_load', 'trafo_load', 'trafo3w_load')
     ga = pp_ga.GeneticAlgorithm(pop_size=150, variables=variables,
-                                net=net, mutation_rate=0.001,
+                                net=net,
                                 obj_fct='min_p_loss',
-                                constraints='all',
+                                constraints=constraints,
                                 plot=plot,
                                 save=save)
 
@@ -108,18 +117,23 @@ def scenario2ref():
 def scenario3(save=False, plot=False):
     """ Large multi voltage level power grid that contains all possible
     elements. If this works, everything should work!
+    Demonstrates usage of different kinds of actuators and also the use of a
+    pre-defined objective function "min_v2_deviations", which is not
+    possible in the pandapower OPF. The pre-implemented functions can be
+    found in "obj.functs.py".
+
     https://pandapower.readthedocs.io/en/v2.1.0/networks/example.html """
     net = create_net3()
 
     variables = [('sgen', 'q_mvar', idx) for idx in net.sgen.index]
     variables += [('gen', 'vm_pu', idx) for idx in net.gen.index]
-    variables += [('shunt', 'step', 0)]
-    variables += [('trafo', 'tap_pos', 1)]
-    variables += [('trafo3w', 'tap_pos', 0)]
+    variables.append(('shunt', 'step', 0))
+    variables.append(('trafo', 'tap_pos', 1))
+    variables.append(('trafo3w', 'tap_pos', 0))
 
-    ga = pp_ga.GeneticAlgorithm(pop_size=150, variables=tuple(variables),
+    ga = pp_ga.GeneticAlgorithm(pop_size=100, variables=tuple(variables),
                                 net=net, mutation_rate=0.001,
-                                obj_fct='min_p_loss',
+                                obj_fct='min_v2_deviations',
                                 constraints='all',
                                 plot=plot,
                                 termination='cmp_last',
@@ -132,6 +146,8 @@ def scenario3(save=False, plot=False):
 
 
 def scenario3ref():
+    """ Pandapower-OPF fails in scenario 3, because tap-changing not
+    possible. """
     net = create_net3()
 
     for actuator in ('ext_grid', 'gen', 'sgen'):
@@ -148,15 +164,6 @@ def scenario3ref():
     except pp.optimal_powerflow.OPFNotConverged:
         print('Pandapower-OPF did not converge for scenario 3! (Because tap-changing not possible?!)')
         return None, None
-
-
-def obj_fct1(net):
-    """ Objective function from simple pp-OPF tutorial. """
-    costs = 0
-    costs += sum(net.res_ext_grid['p_mw']) * 10
-    costs += sum(net.res_gen['p_mw']) * 10
-
-    return costs
 
 
 def create_net1():

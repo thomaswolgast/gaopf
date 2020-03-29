@@ -166,7 +166,7 @@ class GeneticAlgorithm(genetic_operators.Mixin):
 
         self.iter = 0
         while True:
-            print(f'Step {self.iter}')
+            print(f'Step {self.iter}')  # TODO: proper logging instead!
             self.fit_fct()
             if self.termination() is True:
                 break
@@ -178,8 +178,7 @@ class GeneticAlgorithm(genetic_operators.Mixin):
             self.iter += 1
 
         if self.best_ind.valid is False:
-            # TODO: proper logging instead!
-            # Or raise error here like pandapower does?
+            # TODO: Raise error here like pandapower does?
             print(f'Attention: Solution does not fulfill all constraints!')
 
         self.opt_net, _ = self.update_net(self.net, self.best_ind)

@@ -1,6 +1,6 @@
 # obj_functs.py
 """
-A collection of various fitness functions for the pandapower ga-OPF
+A collection of various objective functions for the pandapower ga-OPF
 
 """
 
@@ -32,7 +32,7 @@ def min_pp_costs(net):
     """ Minimize total costs as implemented in pandapower network.
     Useful if cost function is already implemented or for comparison with
     pandapower-OPF. Attention: Not equivalent to 'net.res_cost' after
-    pp-OPF, because internal cost calculation of pandapower buggy. """
+    pp-OPF, because internal cost calculation of pandapower is strange. """
 
     # TODO: piece-wise costs not implemented yet!
     costs = 0
